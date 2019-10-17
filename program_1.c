@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
   
   printf("total boxes are  %d\n", total_boxes);
   Grid_box *grid_boxes = malloc(sizeof(Grid_box) * total_boxes);
-
+  int t=0;
   
   while (fgets(line, sizeof(line), stdin)) {
       //printf("%s\n", line);
@@ -172,8 +172,21 @@ int main(int argc, char *argv[])
           gb.temp = (int) strtol(ptr, (char **)NULL, 10);
       }
       linecounter++;
+      if(linecounter == 7){
+          grid_boxes[t] = gb;
+          t++;
+      }
   }
   
+  //printing all the grid boxes
+  
+  for(int i=0; i<total_boxes; i++){
+      printf("box id %d\n", grid_boxes[i].id);
+      printf("box temprature %d\n", grid_boxes[i].temp);
+      
+      printf("Left neighbours: \n");
+      for(int j=0; j<grid_boxes[i].left_n)
+  }
   printf("\n");
 
   return 0;
