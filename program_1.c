@@ -1,25 +1,8 @@
-/******************************************************************************
-* FILE: hello.c
-* DESCRIPTION:
-*   A "hello world" Pthreads program.  Demonstrates thread creation and
-*   termination.
-* AUTHOR: Blaise Barney
-* LAST REVISED: 08/09/11
-******************************************************************************/
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#define NUM_THREADS	5
-
-void *PrintHello(void *threadid)
-{
-   long tid;
-   tid = (long)threadid;
-   printf("Hello World! It's me, thread #%ld!\n", tid);
-   pthread_exit(NULL);
-}
 
 typedef struct Grid_boxes{
   int box_id;
@@ -28,58 +11,82 @@ typedef struct Grid_boxes{
   int bot_n;
   int left_n;
   int right_n;
+  int xc;
+  int yc;
+  int height;
+  int width;
   int *top_list;
   int *bot_list;
   int *left_list;
   int *right_list;
 } Grid_box;
 
-
+char* strsinline(char *){
+    
+}
 
 int main(int argc, char *argv[])
 {
-   /*pthread_t threads[NUM_THREADS];
-   int rc;
-   long t;
-   for(t=0;t<NUM_THREADS;t++){
-     printf("In main: creating thread %ld\n", t);
-     rc = pthread_create(&threads[t], NULL, PrintHello, (void *)t);
-     if (rc){
-       printf("ERROR; return code from pthread_create() is %d\n", rc);
-       exit(-1);
-       }
-     }
-
-   // Last thing that main() should do 
-   pthread_exit(NULL);*/
-
-  FILE *file;
-  char filename[200];
   char *newline;
   int total_boxes = 0;
   int index = 0;
   int k=0;
+  int row = 0;
+  int col = 0;
+  char line[256];
+  int i=0;
+  char delim[] = " ";
+  
+  //reading first char
+  if(fgets(line, sizeof(line), stdin)){
+    
+    int n = strlen(line);
 
-  while(!feof(stdin) && k != -1){
-    scanf("%d", &k);
-    printf("some val %d\n", k);
-    //arr[index] = k;
-    index++;
+	char *ptr = strtok(line, delim);
+
+	while(ptr != NULL)
+	{
+		//printf("%s\n", ptr);
+		if(ptr && i==0){
+		    total_boxes = (int) strtol(ptr, (char **)NULL, 10);
+		}else if(ptr && i==1){
+		    row = (int) strtol(ptr, (char **)NULL, 10);
+		}else if(ptr){
+		    col = (int) strtol(ptr, (char **)NULL, 10);
+		}
+		i++;
+		ptr = strtok(NULL, delim);
+		
+	}
+
   }
+  i=0;
+  printf("total boxes are  %d\n", total_boxes);
+  Grid_box *grid_boxes = malloc(sizeof(Grid_box) * total_boxes);
 
+  
+  while (fgets(line, sizeof(line), stdin)) {
+      printf("%s\n", line);
+      int n = strlen(line);
 
-
-  //Grid_box *gbs = malloc(total_boxes * sizeof(Grid_box));
-
-  //if(fgets(filename, sizeof(filename), stdin) == NULL)
-    //return -1;
-  //newline = strchr(filename, '\n');
-
-  //if(newline)
-    //*newline = '\0';
-  //printf("****%s*****\n", filename);
-
-  //file = fopen(filename, "r");
+      char *ptr = strtok(line, delim);
+    
+      while(ptr != NULL)
+      {
+    	//printf("%s\n", ptr);
+    	if(ptr && i==0){
+    		   total_boxes = (int) strtol(ptr, (char **)NULL, 10);
+    	}else if(ptr && i==1){
+    	    row = (int) strtol(ptr, (char **)NULL, 10);
+    	}else if(ptr){
+    	    col = (int) strtol(ptr, (char **)NULL, 10);
+    	}
+    	i++;
+    	ptr = strtok(NULL, delim);
+    		
+     }
+  }
+  
 
   
 
