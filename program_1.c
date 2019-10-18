@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <float.h>
+//#include <float.h>
 
-//#define DBL_MAX 1.7976931348623158e+308 /* max value */
-//#define DBL_MIN 2.2250738585072014e-308 /* min positive value */
+#define DBL_MAX 1.7976931348623158e+308 /* max value */
+#define DBL_MIN 2.2250738585072014e-308 /* min positive value */
 
 typedef struct Grid_boxes{
   int box_id;
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
   int j=0;
   int k=0;
   
-  double epsilon = 0.1;
+  double epsilon = 100;
   double affect_rate = 0.1;
   double cur_min_dsv = DBL_MAX;
   double cur_max_dsv = DBL_MIN;
@@ -237,7 +237,7 @@ int main(int argc, char *argv[])
   
   int total_iterations = 0;
   
-  while((cur_max_dsv - cur_min_dsv)/cur_max_dsv > epsilon){
+  while((cur_max_dsv - cur_min_dsv)/cur_max_dsv > 0.5){
       total_iterations++;
       for(int cur = 0; cur < total_boxes; cur++){
           int cxc = grid_boxes[cur].xc;
@@ -301,6 +301,8 @@ int main(int argc, char *argv[])
           int box_peri = 2*cw + 2*ch;
           double avg_dsv = dsv_c/(double)box_peri;
           grid_boxes[cur].temp = grid_boxes[cur].temp - (grid_boxes[cur].temp - avg_dsv)*affect_rate;
+          cur_max_dsv = max(cur_max_dsv,  grid_boxes[cur].temp);
+          cur_min_dsv = min(cur_min_dsv,  grid_boxes[cur].temp);
       }
   }
   
