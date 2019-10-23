@@ -283,7 +283,7 @@ int main(int argc, char *argv[])
   clock_t start_clock, end_clock;
   start_clock = clock();
   gettimeofday(&t_start, NULL);
-  unsigned long long startTime = ((unsigned long long)t_start.tv_sec) * 1000 + ((unsigned long long)(t_start.tv_usec))/1000;
+  unsigned long long startTime = ((unsigned long long)(t_start.tv_sec)*CLOCKS_PER_SEC) + ((unsigned long long)((t_start.tv_usec))/1000000);
 
   while(1){
       total_iterations++;
@@ -431,25 +431,25 @@ int main(int argc, char *argv[])
   }
 
   gettimeofday(&t_end, NULL);
-  unsigned long long endTime = ((unsigned long long)t_end.tv_sec) * 1000 + ((unsigned long long)(t_end.tv_usec))/1000;
+  unsigned long long endTime = ((unsigned long long)t_end.tv_sec)*CLOCKS_PER_SEC + ((unsigned long long)((t_end.tv_usec))/1000000);
 
   double elapsed=0;
   clock_gettime(CLOCK_REALTIME,&end);
   end_clock = (double)((clock() - start_clock));
   
-  elapsed = (endTime - startTime)/1000000.0;
+  elapsed = (endTime - startTime);
   //printf("GPU version runs in: %lf seconds\n", elapsed);
   //BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
   timediff = (double)((end.tv_sec - start.tv_sec)*CLOCKS_PER_SEC + ((end.tv_nsec -start.tv_nsec)/1000000));
 
-  printf("\n***************************************************************\n");
+  printf("\n********************************************************************************\n");
   printf("dissipation converged in %d iterations,\n", total_iterations);
-  printf("\t\twith max DSV = %lf and min DSV = %lf\n", cur_max_dsv, cur_min_dsv);
+  printf("\twith max DSV = %lf and min DSV = %lf\n", cur_max_dsv, cur_min_dsv);
 
-  printf("\t\taffect rate = %lf; epsilon = %lf\n\n", affect_rate, epsilon);
+  printf("\taffect rate = %lf; epsilon = %lf\n\n", affect_rate, epsilon);
   printf("elapsed convergence loop time (clock_gettime()): %lf\n", timediff);
   printf("elapsed convergence loop time (clock): %ld\n", end_clock);
   printf("elapsed convergence loop time (gettimeofday()): %lf\n", elapsed);
-  printf("\n****************************************************************\n");
+  printf("\n********************************************************************************\n");
   return 0;
 }
