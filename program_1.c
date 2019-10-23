@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h> 
-#include <time.h>
+#include <sys/time.h>
 //#include <float.h>
 
 #define DBL_MAX 1.7976931348623158e+308 /* max value */
@@ -70,19 +70,15 @@ int main(int argc, char *argv[])
   double timediff;
 
   if(argc != 3){
-    printf("Please provide correct number of arguments\n");
+    printf("Please provide correct number of arguments in the following order: <AFFECT_RATE> <EPSILON> <INPUT_FILE>\n");
     exit(0);
   }
 
   sscanf(argv[1], "%lf", &affect_rate);
   sscanf(argv[2], "%lf", &epsilon);
-  //printf("affec rate epsilon %lf %lf\n", affect_rate, epsilon);
-  //scanf("%lf", &epsilon);
   
   //reading first line containng number of boxes, rows and cols
   if(fgets(line, sizeof(line), stdin)){
-    
-    //int n = strlen(line);
     i=0;
     char *ptr = strtok(line, delim);
 
@@ -103,7 +99,7 @@ int main(int argc, char *argv[])
 
   }
   
-  printf("total boxes are  %d\n", total_boxes);
+  //printf("total boxes are  %d\n", total_boxes);
   Grid_box *grid_boxes = malloc(sizeof(Grid_box) * total_boxes);
   dsv_c = malloc(sizeof(double) * total_boxes);
   int t=0;
@@ -232,7 +228,7 @@ int main(int argc, char *argv[])
       if(t==total_boxes)break;
   }
   
-  printf("total boxes again %d\n", t);
+  //printf("total boxes again %d\n", t);
   //printing all the grid boxes
   /*
   for(int i=0; i<total_boxes; i++){
@@ -268,9 +264,9 @@ int main(int argc, char *argv[])
   */
   
   //converging values from here
-  printf("total boxes %d\n", t);
-  printf("Max temprature %lf\n", cur_max_dsv);
-  printf("Min temprature %lf\n", cur_min_dsv);
+  //printf("total boxes %d\n", t);
+  //printf("Max temprature %lf\n", cur_max_dsv);
+  //printf("Min temprature %lf\n", cur_min_dsv);
 
   int imax(int a, int b){
     return a>b ? a : b;
@@ -281,10 +277,13 @@ int main(int argc, char *argv[])
   }
   
   int total_iterations = 0;
-  
+
+  struct timeval t_start, t_end, t_diff;
   clock_gettime(CLOCK_REALTIME,& start);
   clock_t start_clock, end_clock;
   start_clock = clock();
+  gettimeofday(&t_start, NULL);
+  unsigned long long startTime = ((unsigned long long)t_start.tv_sec) * 1000 + ((unsigned long long)(t_start.tv_usec))/1000;
 
   while(1){
       total_iterations++;
@@ -421,9 +420,9 @@ int main(int argc, char *argv[])
           cur_max_dsv = max(cur_max_dsv,  dsv_c[curx]);
           cur_min_dsv = min(cur_min_dsv,  dsv_c[curx]);
       }
-      printf("Max temprature :   %lf\n", cur_max_dsv);
-      printf("Min temprature :   %lf\n", cur_min_dsv);
-      printf("loop counter :   %d\n", total_iterations);
+     // printf("Max temprature :   %lf\n", cur_max_dsv);
+    //  printf("Min temprature :   %lf\n", cur_min_dsv);
+    //  printf("loop counter :   %d\n", total_iterations);
 
       int diff = (cur_max_dsv - cur_min_dsv) <= (epsilon*cur_max_dsv) ? 1 : 0;
       if(diff==1) break;
@@ -431,14 +430,26 @@ int main(int argc, char *argv[])
      // if(cur_max_dsv - cur_min_dsv < 0.1) break;
   }
 
-  clock_gettime(CLOCK_REALTIME,& end);
-  end_clock = clock() - start_clock;
-  //BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
-  timediff = (double)( ((end.tv_sec - start.tv_sec)*CLOCKS_PER_SEC) + ((end.tv_nsec -start.tv_nsec)/1000000) );
-  printf("time taken -- time %lf\n", timediff);
-  printf("time taken -- clock %ld\n", end_clock);
-  printf("Total iterations for converging: %d", total_iterations);
+  gettimeofday(&t_end, NULL);
+  unsigned long long endTime = ((unsigned long long)t_end.tv_sec) * 1000 + ((unsigned long long)(t_end.tv_usec))/1000;
+
+  double elapsed=0;
+  clock_gettime(CLOCK_REALTIME,&end);
+  end_clock = (double)((clock() - start_clock));
   
-  printf("\n");
+  elapsed = (endTime - startTime)/1000000.0;
+  //printf("GPU version runs in: %lf seconds\n", elapsed);
+  //BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
+  timediff = (double)((end.tv_sec - start.tv_sec)*CLOCKS_PER_SEC + ((end.tv_nsec -start.tv_nsec)/1000000));
+
+  printf("\n***************************************************************\n");
+  printf("dissipation converged in %d iterations,\n", total_iterations);
+  printf("\t\twith max DSV = %lf and min DSV = %lf\n", cur_max_dsv, cur_min_dsv);
+
+  printf("\t\taffect rate = %lf; epsilon = %lf\n\n", affect_rate, epsilon);
+  printf("elapsed convergence loop time (clock_gettime()): %lf\n", timediff);
+  printf("elapsed convergence loop time (clock): %ld\n", end_clock);
+  printf("elapsed convergence loop time (gettimeofday()): %lf\n", elapsed);
+  printf("\n****************************************************************\n");
   return 0;
 }
