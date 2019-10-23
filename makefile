@@ -1,7 +1,7 @@
-all: hellothreads
+all: lab1
 
-hellothreads: program_1.c
-	gcc program_1.c -o program_1 -lpthread
+lab1: program_1.c
+	gcc -O3 program_1.c -o program_1 -lrt
 
 clean:
-	rm hellothreads
+	rm lab1
