@@ -9,7 +9,6 @@
 
 #define DBL_MAX 1.7976931348623158e+308 /* max value */
 #define DBL_MIN 2.2250738585072014e-308 /* min positive value */
-#define BILLION 1000000000L
 
 typedef struct Grid_boxes{
   int box_id;
@@ -99,31 +98,29 @@ int main(int argc, char *argv[])
 
   }
   
-  //printf("total boxes are  %d\n", total_boxes);
   Grid_box *grid_boxes = malloc(sizeof(Grid_box) * total_boxes);
   dsv_c = malloc(sizeof(double) * total_boxes);
   int t=0;
   
   while (fgets(line, sizeof(line), stdin)) {
       
-      //int n = strlen(line);
       if(emptyline(line)) continue;
-      //printf("Line with chars  -- %s\n", line);
+      
       Grid_box gb;
 
       i=0;
       char *ptr = strtok(line, delim);
       if(linecounter == 7) linecounter = 0;
       if(linecounter == 0){
-          //printf("%s\n", ptr);
+          
           gb.box_id = (int) strtol(ptr, (char **)NULL, 10);
           
       }else if(linecounter == 1){
-        //printf("%s\n", ptr);
+        
         i=0;
         while(ptr != NULL)
           {
-        //  printf("linecounter 1 %s\n", ptr);
+        
           if(ptr && i==0){
             gb.yc = (int) strtol(ptr, (char **)NULL, 10);
           }else if(ptr && i==1){
@@ -138,18 +135,16 @@ int main(int argc, char *argv[])
             
          }
       }else if(linecounter == 2){
-       // printf("%s\n", ptr);
+       
         j=0;
         i=0;
         while(ptr != NULL)
           {
-        //  printf("linecounter 2 %s\n", ptr);
           if(ptr && i==0){
             gb.top_n = (int) strtol(ptr, (char **)NULL, 10);
             gb.top_list = malloc(sizeof(int)*(gb.top_n));
           }else if(ptr && i>=1 && j < gb.top_n){
              gb.top_list[j] = (int) strtol(ptr, (char **)NULL, 10);
-             //printf("top neighbor of %d is %d \n", gb.box_id, gb.top_list[j]);
              j++;
           }
           i++;
@@ -157,18 +152,15 @@ int main(int argc, char *argv[])
             
          }
       }else if(linecounter == 3){
-        //printf("%s\n", ptr);
         j=0;
         i=0;
         while(ptr != NULL)
         {
-        //  printf("linecounter 3 %s\n", ptr);
           if(ptr && i==0){
             gb.bot_n = (int) strtol(ptr, (char **)NULL, 10);
             gb.bot_list = malloc(sizeof(int)*(gb.bot_n));
           }else if(ptr && i>=1 &&j < gb.bot_n){
              gb.bot_list[j] = (int) strtol(ptr, (char **)NULL, 10);
-             //printf("bottom neighbor of %d is %d \n", gb.box_id, gb.bot_list[j]);
              j++;
           }
           i++;
@@ -176,18 +168,15 @@ int main(int argc, char *argv[])
             
         }
       }else if(linecounter == 4){
-        //printf("%s\n", ptr);
         j=0;
         i=0;
         while(ptr != NULL)
           {
-        //  printf("linecounter 4 %s\n", ptr);
-          if(ptr && i==0){
+         if(ptr && i==0){
             gb.left_n = (int) strtol(ptr, (char **)NULL, 10);
             gb.left_list = malloc(sizeof(int)*(gb.left_n));
           }else if(ptr && i>=1  &&j < gb.left_n){
              gb.left_list[j] = (int) strtol(ptr, (char **)NULL, 10);
-             //printf("left neighbor of %d is %d \n", gb.box_id, gb.left_list[j]);
              j++;
           }
           i++;
@@ -195,18 +184,15 @@ int main(int argc, char *argv[])
             
          }
       }else if(linecounter == 5){
-       // printf("%s\n", ptr);
         j=0;
         i=0;
         while(ptr != NULL)
           {
-          //printf("linecounter 5 %s\n", ptr);
           if(ptr && i==0){
             gb.right_n = (int) strtol(ptr, (char **)NULL, 10);
             gb.right_list = malloc(sizeof(int)*(gb.right_n));
           }else if(ptr && i>=1  &&j < gb.right_n){
              gb.right_list[j] = (int) strtol(ptr, (char **)NULL, 10);
-             //printf("right neighbor of %d is %d \n", gb.box_id, gb.right_list[j]);
              j++;
           }
           i++;
@@ -214,9 +200,7 @@ int main(int argc, char *argv[])
             
          }
       }else if(linecounter == 6){
-          //printf("temprature %s\n", ptr);
           sscanf(ptr, "%lf", &gb.temp);
-          //gb.temp = (double) strtol(ptr, (char **)NULL, 10);
           cur_max_dsv = gb.temp > cur_max_dsv ? gb.temp : cur_max_dsv;
           cur_min_dsv = gb.temp < cur_min_dsv ? gb.temp : cur_min_dsv;
       }
@@ -262,11 +246,6 @@ int main(int argc, char *argv[])
       
   }
   */
-  
-  //converging values from here
-  //printf("total boxes %d\n", t);
-  //printf("Max temprature %lf\n", cur_max_dsv);
-  //printf("Min temprature %lf\n", cur_min_dsv);
 
   int imax(int a, int b){
     return a>b ? a : b;
@@ -283,7 +262,7 @@ int main(int argc, char *argv[])
   clock_t start_clock, end_clock;
   start_clock = clock();
   gettimeofday(&t_start, NULL);
-  unsigned long long startTime = ((unsigned long long)(t_start.tv_sec)*CLOCKS_PER_SEC) + ((unsigned long long)((t_start.tv_usec))/1000000);
+  unsigned long long startTime = ((unsigned long long)(t_start.tv_sec*CLOCKS_PER_SEC)) + ((unsigned long long)((t_start.tv_usec))/1000);
 
   while(1){
       total_iterations++;
@@ -312,7 +291,6 @@ int main(int argc, char *argv[])
                 ov_start = imax(grid_boxes[cur_box].xc, cxc);
                 ov_end = imin(grid_boxes[cur_box].xc + grid_boxes[cur_box].width, cxc + cw);
                 overlap = ov_end - ov_start;
-                //printf("Top Neighbour and temp overlap %d %d %lf\n", overlap, cur_box, grid_boxes[cur_box].temp);
                 dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
                 if(overlap <= 0){
                   //printf("Something wrong with overlap \n");
@@ -336,7 +314,6 @@ int main(int argc, char *argv[])
                 ov_start = imax(grid_boxes[cur_box].yc, cyc);
                 ov_end = imin(grid_boxes[cur_box].yc + grid_boxes[cur_box].height, cyc + ch);
                 overlap = ov_end - ov_start;
-                //printf("right Neighbour and temp overlap %d %d %lf\n", overlap, cur_box, grid_boxes[cur_box].temp);
                 dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
                 if(overlap <= 0){
                   //printf("Something wrong with overlap \n");
@@ -382,7 +359,6 @@ int main(int argc, char *argv[])
                 ov_start = imax(grid_boxes[cur_box].yc, cyc);
                 ov_end = imin(grid_boxes[cur_box].yc + grid_boxes[cur_box].height, cyc + ch);
                 overlap = ov_end - ov_start;
-                //printf("left Neighbour and temp overlap %d %d %lf\n", overlap, cur_box, grid_boxes[cur_box].temp);
                 dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
                 if(overlap <= 0){
                   //printf("Something wrong with overlap \n");
@@ -398,17 +374,6 @@ int main(int argc, char *argv[])
             offset = ((cur_temp - avg_dsv)*affect_rate);
           }
           dsv_c[cur] = cur_temp - offset;
-
-          /*
-          if(avg_dsv > cur_temp){
-            //grid_boxes[cur].temp = cur_temp + (avg_dsv - cur_temp)*affect_rate;
-            dsv_c[cur] = cur_temp + ((avg_dsv - cur_temp)*affect_rate);
-          }else{
-            //grid_boxes[cur].temp = cur_temp - (cur_temp - avg_dsv)*affect_rate;
-            dsv_c[cur] = cur_temp - ((cur_temp - avg_dsv)*affect_rate);
-          }
-          */
-          //printf("Cur temprature %d : %lf\n", cur, dsv_c[cur]);
       }
 
       cur_min_dsv =  dsv_c[0];
@@ -420,26 +385,20 @@ int main(int argc, char *argv[])
           cur_max_dsv = max(cur_max_dsv,  dsv_c[curx]);
           cur_min_dsv = min(cur_min_dsv,  dsv_c[curx]);
       }
-     // printf("Max temprature :   %lf\n", cur_max_dsv);
-    //  printf("Min temprature :   %lf\n", cur_min_dsv);
-    //  printf("loop counter :   %d\n", total_iterations);
 
       int diff = (cur_max_dsv - cur_min_dsv) <= (epsilon*cur_max_dsv) ? 1 : 0;
       if(diff==1) break;
-      //if(cur_max_dsv == 0 && cur_min_dsv == 0) break;
-     // if(cur_max_dsv - cur_min_dsv < 0.1) break;
+
   }
 
   gettimeofday(&t_end, NULL);
-  unsigned long long endTime = ((unsigned long long)t_end.tv_sec)*CLOCKS_PER_SEC + ((unsigned long long)((t_end.tv_usec))/1000000);
+  unsigned long long endTime = ((unsigned long long)t_end.tv_sec)*CLOCKS_PER_SEC + ((unsigned long long)((t_end.tv_usec))/1000);
 
   double elapsed=0;
   clock_gettime(CLOCK_REALTIME,&end);
   end_clock = (double)((clock() - start_clock));
   
   elapsed = (endTime - startTime);
-  //printf("GPU version runs in: %lf seconds\n", elapsed);
-  //BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
   timediff = (double)((end.tv_sec - start.tv_sec)*CLOCKS_PER_SEC + ((end.tv_nsec -start.tv_nsec)/1000000));
 
   printf("\n********************************************************************************\n");
