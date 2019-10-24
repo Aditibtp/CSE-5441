@@ -410,5 +410,20 @@ int main(int argc, char *argv[])
   printf("elapsed convergence loop time (clock): %ld\n", end_clock);
   printf("elapsed convergence loop time (gettimeofday()): %lf\n", elapsed);
   printf("\n********************************************************************************\n");
+
+  //freeing up memory
+  for(int i=0; i<total_boxes; i++){
+      
+      free(grid_boxes[i].left_list);
+      
+      free(grid_boxes[i].right_list);
+
+      free(grid_boxes[i].top_list);
+
+      free(grid_boxes[i].bot_list);
+      
+  }
+  free(grid_boxes);
+
   return 0;
 }
