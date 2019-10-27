@@ -5,7 +5,6 @@
 #include <string.h>
 #include <ctype.h> 
 #include <sys/time.h>
-//#include <float.h>
 
 #define DBL_MAX 1.7976931348623158e+308 /* max value */
 #define DBL_MIN 2.2250738585072014e-308 /* min positive value */
@@ -27,6 +26,18 @@ typedef struct Grid_boxes{
   int *right_list;
 } Grid_box;
 
+int total_boxes = 0;
+Grid_box *grid_boxes;
+double *dsv_c = NULL;
+double epsilon = 0.1;
+double affect_rate = 0.1;
+int num_threads = 3;
+double cur_min_dsv = DBL_MAX;
+double cur_max_dsv = DBL_MIN;
+
+pthread_barrier_t our_barrier;
+pthread_t *threads;
+
 double max(double a, double b){
     return a > b ? a : b;
 }
@@ -37,8 +48,6 @@ double min(double a, double b){
 
 int emptyline(char *line){
   int len = strlen(line);
-  //char *ptr = strtok(line, "delim");
- // printf("Checking line %s\n", line);
   for(int i=0; i<len; i++){
     if(!isspace(line[i])){
       return 0;
@@ -50,7 +59,7 @@ int emptyline(char *line){
   //printf("total boxes again %d\n", t);
   //printing all the grid boxes
 
-void printBoxes(Grid_boxes *grid_boxes, total_boxes){
+void printBoxes(){
     for(int i=0; i<total_boxes; i++){
       printf("box id %d\n", grid_boxes[i].box_id);
       printf("box temprature %lf\n", grid_boxes[i].temp);
@@ -91,9 +100,151 @@ int imin(int a, int b){
   return a<b ? a : b;
 }
 
+void* calculateDsvForBox(void* box_index){
+  
+  int cur = *((int*)box_index);
+  //printf("Box %d runs\n", cur);
+  int cxc = grid_boxes[cur].xc;
+  int cyc = grid_boxes[cur].yc;
+  int ch = grid_boxes[cur].height;
+  int cw = grid_boxes[cur].width;
+  dsv_c[cur] = 0;
+  int box_peri = 0;
+  
+  //top neighbours
+  int cur_box = 0; 
+  int overlap = 0;
+  int ov_end = 0;
+  int ov_start = 0;
+
+  if(grid_boxes[cur].top_n > 0){
+      box_peri += cw;
+      for(int tn = 0; tn<grid_boxes[cur].top_n; tn++){
+        cur_box = grid_boxes[cur].top_list[tn];
+        ov_start = imax(grid_boxes[cur_box].xc, cxc);
+        ov_end = imin(grid_boxes[cur_box].xc + grid_boxes[cur_box].width, cxc + cw);
+        overlap = ov_end - ov_start;
+        dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
+        if(overlap <= 0){
+          //printf("Something wrong with overlap \n");
+        }
+        
+    }
+  }
+  
+  //right neighbours
+  cur_box = 0; 
+  overlap = 0;
+  ov_end = 0;
+  ov_start = 0;
+
+  if(grid_boxes[cur].right_n > 0){
+    box_peri += ch;
+    for(int rn = 0; rn<grid_boxes[cur].right_n; rn++){
+        cur_box = grid_boxes[cur].right_list[rn];
+        ov_start = imax(grid_boxes[cur_box].yc, cyc);
+        ov_end = imin(grid_boxes[cur_box].yc + grid_boxes[cur_box].height, cyc + ch);
+        overlap = ov_end - ov_start;
+        dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
+        if(overlap <= 0){
+          //printf("Something wrong with overlap \n");
+        }
+    }
+}
+  
+  //bottom neighbours
+  cur_box = 0; 
+  overlap = 0;
+  ov_end = 0;
+  ov_start = 0;
+
+  if(grid_boxes[cur].bot_n > 0){
+    box_peri += cw;
+    for(int bn = 0; bn<grid_boxes[cur].bot_n; bn++){
+        cur_box = grid_boxes[cur].bot_list[bn];
+        ov_start = imax(grid_boxes[cur_box].xc, cxc);
+        ov_end = imin(grid_boxes[cur_box].xc + grid_boxes[cur_box].width, cxc + cw);
+        overlap = ov_end - ov_start;
+        //printf("bottom Neighbour and temp overlap %d %d %lf\n", overlap, cur_box, grid_boxes[cur_box].temp);
+        dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
+        if(overlap <= 0){
+          //printf("Something wrong with overlap \n");
+        }
+    }
+  }
+  
+  //left neighbours
+  cur_box = 0; 
+  overlap = 0;
+  ov_end = 0;
+  ov_start = 0;
+
+  if(grid_boxes[cur].left_n > 0){
+    box_peri += ch;
+    for(int ln = 0; ln<grid_boxes[cur].left_n; ln++){
+        cur_box = grid_boxes[cur].left_list[ln];
+        ov_start = imax(grid_boxes[cur_box].yc, cyc);
+        ov_end = imin(grid_boxes[cur_box].yc + grid_boxes[cur_box].height, cyc + ch);
+        overlap = ov_end - ov_start;
+        dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
+        if(overlap <= 0){
+          //printf("Something wrong with overlap \n");
+        }
+    }
+  }
+  double offset = 0;
+
+  double cur_temp = grid_boxes[cur].temp;
+  if(box_peri > 0){
+    double avg_dsv = dsv_c[cur]/(double)box_peri;
+    offset = ((cur_temp - avg_dsv)*affect_rate);
+  }
+  dsv_c[cur] = cur_temp - offset;
+  pthread_barrier_wait(&our_barrier);
+  //pthread_exit(NULL);
+}
+
+void convergenceLoop(){
+
+  void *th_status;
+  int *param;
+  int return_val = 0;
+  int thread_index = 0;
+
+  pthread_barrier_init(&our_barrier,NULL,num_threads);
+
+  for(int cur = 0; cur < total_boxes; cur++){
+      param = malloc(sizeof(int));
+      *param = cur; 
+      thread_index = cur % num_threads;
+      return_val = pthread_create(&threads[thread_index], NULL, calculateDsvForBox, (void *)param);
+      //if (thread_index == num_threads - 1 || thread_index == (total_boxes - 1)%num_threads) {
+            
+      //}
+    }
+
+    
+
+    for (int k = 0; k < num_threads; k++)
+        return_val = pthread_join(threads[k], NULL);
+
+    cur_min_dsv =  dsv_c[0];
+    cur_max_dsv =  dsv_c[0];
+    grid_boxes[0].temp = dsv_c[0];
+
+    
+    pthread_barrier_destroy(&our_barrier);
+
+    for(int curx=1; curx<total_boxes; curx++){
+        grid_boxes[curx].temp = dsv_c[curx];
+        cur_max_dsv = max(cur_max_dsv,  dsv_c[curx]);
+        cur_min_dsv = min(cur_min_dsv,  dsv_c[curx]);
+    }
+}
+
 int main(int argc, char *argv[])
 {
-  int total_boxes = 0;
+  
   int row = 0;
   int col = 0;
   char line[500];
@@ -104,11 +255,6 @@ int main(int argc, char *argv[])
   int j=0;
   int k=0;
   
-  double epsilon = 0.1;
-  double affect_rate = 0.1;
-  double cur_min_dsv = DBL_MAX;
-  double cur_max_dsv = DBL_MIN;
-  double *dsv_c = NULL;
   struct timespec start, end;
   double timediff;
 
@@ -142,7 +288,7 @@ int main(int argc, char *argv[])
 
   }
   
-  Grid_box *grid_boxes = malloc(sizeof(Grid_box) * total_boxes);
+  grid_boxes = malloc(sizeof(Grid_box) * total_boxes);
   dsv_c = malloc(sizeof(double) * total_boxes);
   int t=0;
   
@@ -256,7 +402,7 @@ int main(int argc, char *argv[])
       if(t==total_boxes)break;
   }
   
-  printBoxes(grid_boxes, total_boxes);
+  //printBoxes(grid_boxes, total_boxes);
   
   int total_iterations = 0;
 
@@ -266,129 +412,13 @@ int main(int argc, char *argv[])
   start_clock = clock();
   gettimeofday(&t_start, NULL);
   unsigned long long startTime = ((unsigned long long)(t_start.tv_sec*CLOCKS_PER_SEC)) + ((unsigned long long)((t_start.tv_usec))/1000);
+  
+  
+  threads = (pthread_t*)malloc(sizeof(*threads) * num_threads);
 
   while(1){
       total_iterations++;
-
-      for(int cur = 0; cur < total_boxes; cur++){
-
-          int cxc = grid_boxes[cur].xc;
-          int cyc = grid_boxes[cur].yc;
-          int ch = grid_boxes[cur].height;
-          int cw = grid_boxes[cur].width;
-          dsv_c[cur] = 0;
-          int box_peri = 0;
-          
-          //top neighbours
-          int cur_box = 0; 
-          int overlap = 0;
-          int ov_end = 0;
-          int ov_start = 0;
-
-          if(grid_boxes[cur].top_n == 0){
-              //dsv_c[cur] += grid_boxes[cur].temp;
-          }else{
-              box_peri += cw;
-              for(int tn = 0; tn<grid_boxes[cur].top_n; tn++){
-                cur_box = grid_boxes[cur].top_list[tn];
-                ov_start = imax(grid_boxes[cur_box].xc, cxc);
-                ov_end = imin(grid_boxes[cur_box].xc + grid_boxes[cur_box].width, cxc + cw);
-                overlap = ov_end - ov_start;
-                dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
-                if(overlap <= 0){
-                  //printf("Something wrong with overlap \n");
-                }
-                
-            }
-          }
-          
-          //right neighbours
-          cur_box = 0; 
-          overlap = 0;
-          ov_end = 0;
-          ov_start = 0;
-
-          if(grid_boxes[cur].right_n == 0){
-            //dsv_c[cur] += grid_boxes[cur].temp;
-          }else{
-            box_peri += ch;
-            for(int rn = 0; rn<grid_boxes[cur].right_n; rn++){
-                cur_box = grid_boxes[cur].right_list[rn];
-                ov_start = imax(grid_boxes[cur_box].yc, cyc);
-                ov_end = imin(grid_boxes[cur_box].yc + grid_boxes[cur_box].height, cyc + ch);
-                overlap = ov_end - ov_start;
-                dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
-                if(overlap <= 0){
-                  //printf("Something wrong with overlap \n");
-                }
-            }
-        }
-          
-          //bottom neighbours
-          cur_box = 0; 
-          overlap = 0;
-          ov_end = 0;
-          ov_start = 0;
-
-          if(grid_boxes[cur].bot_n == 0){
-            //dsv_c[cur] += grid_boxes[cur].temp;
-          }else{
-            box_peri += cw;
-            for(int bn = 0; bn<grid_boxes[cur].bot_n; bn++){
-                cur_box = grid_boxes[cur].bot_list[bn];
-                ov_start = imax(grid_boxes[cur_box].xc, cxc);
-                ov_end = imin(grid_boxes[cur_box].xc + grid_boxes[cur_box].width, cxc + cw);
-                overlap = ov_end - ov_start;
-                //printf("bottom Neighbour and temp overlap %d %d %lf\n", overlap, cur_box, grid_boxes[cur_box].temp);
-                dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
-                if(overlap <= 0){
-                  //printf("Something wrong with overlap \n");
-                }
-            }
-          }
-          
-          //left neighbours
-          cur_box = 0; 
-          overlap = 0;
-          ov_end = 0;
-          ov_start = 0;
-
-          if(grid_boxes[cur].left_n == 0){
-            //dsv_c[cur] += grid_boxes[cur].temp;
-          }else{
-            box_peri += ch;
-            for(int ln = 0; ln<grid_boxes[cur].left_n; ln++){
-                cur_box = grid_boxes[cur].left_list[ln];
-                ov_start = imax(grid_boxes[cur_box].yc, cyc);
-                ov_end = imin(grid_boxes[cur_box].yc + grid_boxes[cur_box].height, cyc + ch);
-                overlap = ov_end - ov_start;
-                dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
-                if(overlap <= 0){
-                  //printf("Something wrong with overlap \n");
-                }
-            }
-          }
-
-          double offset = 0;
-
-          double cur_temp = grid_boxes[cur].temp;
-          if(box_peri > 0){
-            double avg_dsv = dsv_c[cur]/(double)box_peri;
-            offset = ((cur_temp - avg_dsv)*affect_rate);
-          }
-          dsv_c[cur] = cur_temp - offset;
-      }
-
-      cur_min_dsv =  dsv_c[0];
-      cur_max_dsv =  dsv_c[0];
-      grid_boxes[0].temp = dsv_c[0];
-
-      for(int curx=1; curx<total_boxes; curx++){
-          grid_boxes[curx].temp = dsv_c[curx];
-          cur_max_dsv = max(cur_max_dsv,  dsv_c[curx]);
-          cur_min_dsv = min(cur_min_dsv,  dsv_c[curx]);
-      }
-
+      convergenceLoop();
       int diff = (cur_max_dsv - cur_min_dsv) <= (epsilon*cur_max_dsv) ? 1 : 0;
       if(diff==1) break;
 
