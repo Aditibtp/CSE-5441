@@ -26,6 +26,16 @@ typedef struct Grid_boxes{
   int *right_list;
 } Grid_box;
 
+/* Structure contains the thread specific data. */
+typedef struct thread_data{
+  int thread_id; // Thread ID.
+  int start; // Starting box number in the grid. 
+  int end; // End box number in the grid. 
+} thread_data;
+
+pthread_barrier_t our_barrier;
+pthread_t *threads;
+
 int total_boxes = 0;
 Grid_box *grid_boxes;
 double *dsv_c = NULL;
@@ -34,9 +44,6 @@ double affect_rate = 0.1;
 int num_threads = 3;
 double cur_min_dsv = DBL_MAX;
 double cur_max_dsv = DBL_MIN;
-
-pthread_barrier_t our_barrier;
-pthread_t *threads;
 
 double max(double a, double b){
     return a > b ? a : b;
@@ -100,9 +107,12 @@ int imin(int a, int b){
   return a<b ? a : b;
 }
 
-void* calculateDsvForBox(void* box_index){
+void* calculateDsvForBox(int box_index){
   
-  int cur = *((int*)box_index);
+    //int cur = *((int*)box_index);
+  //printf("Box %d runs\n", cur);
+
+  int cur = box_index;
   //printf("Box %d runs\n", cur);
   int cxc = grid_boxes[cur].xc;
   int cyc = grid_boxes[cur].yc;
@@ -200,46 +210,20 @@ void* calculateDsvForBox(void* box_index){
     offset = ((cur_temp - avg_dsv)*affect_rate);
   }
   dsv_c[cur] = cur_temp - offset;
-  pthread_barrier_wait(&our_barrier);
+  //pthread_barrier_wait(&our_barrier);
   //pthread_exit(NULL);
 }
 
-void convergenceLoop(){
-
-  void *th_status;
-  int *param;
-  int return_val = 0;
-  int thread_index = 0;
-
-  pthread_barrier_init(&our_barrier,NULL,num_threads);
-
-  for(int cur = 0; cur < total_boxes; cur++){
-      param = malloc(sizeof(int));
-      *param = cur; 
-      thread_index = cur % num_threads;
-      return_val = pthread_create(&threads[thread_index], NULL, calculateDsvForBox, (void *)param);
-      //if (thread_index == num_threads - 1 || thread_index == (total_boxes - 1)%num_threads) {
-            
-      //}
-    }
-
-    
-
-    for (int k = 0; k < num_threads; k++)
-        return_val = pthread_join(threads[k], NULL);
-
-    cur_min_dsv =  dsv_c[0];
-    cur_max_dsv =  dsv_c[0];
-    grid_boxes[0].temp = dsv_c[0];
-
-    
-    pthread_barrier_destroy(&our_barrier);
-
-    for(int curx=1; curx<total_boxes; curx++){
-        grid_boxes[curx].temp = dsv_c[curx];
-        cur_max_dsv = max(cur_max_dsv,  dsv_c[curx]);
-        cur_min_dsv = min(cur_min_dsv,  dsv_c[curx]);
-    }
+void *compute_dsv(void *range){
+  //printf("computing dsv");
+  thread_data *mydata = (thread_data*) range;
+  //printf("computing dsv from %d to %d \n",  mydata->start, mydata->end );
+  for(int i = mydata->start; i <= min(mydata->end, total_boxes-1); i++){
+    calculateDsvForBox(i);
+  }
+  pthread_barrier_wait(&our_barrier);
+  //printf("done computing %d to %d \n",  mydata->start, mydata->end );
+  //pthread_exit(0);
 }
 
 int main(int argc, char *argv[])
@@ -258,13 +242,14 @@ int main(int argc, char *argv[])
   struct timespec start, end;
   double timediff;
 
-  if(argc != 3){
-    printf("Please provide correct number of arguments in the following order: <AFFECT_RATE> <EPSILON> <INPUT_FILE>\n");
+  if(argc != 4){
+    printf("Please provide correct number of arguments in the following order: <Number of threads> <AFFECT_RATE> <EPSILON> <INPUT_FILE>\n");
     exit(0);
   }
-
-  sscanf(argv[1], "%lf", &affect_rate);
-  sscanf(argv[2], "%lf", &epsilon);
+  
+  sscanf(argv[1], "%d", &num_threads);
+  sscanf(argv[2], "%lf", &affect_rate);
+  sscanf(argv[3], "%lf", &epsilon);
   
   //reading first line containng number of boxes, rows and cols
   if(fgets(line, sizeof(line), stdin)){
@@ -415,10 +400,49 @@ int main(int argc, char *argv[])
   
   
   threads = (pthread_t*)malloc(sizeof(*threads) * num_threads);
+  pthread_attr_t thread_attr;
+
+  int num_divs = total_boxes/num_threads;
+  thread_data message[num_threads];
+  int start_index = 0;
+  //divide the grids among threads
+
+  for (int i = 0; i < num_threads; i++) {
+    message[i].thread_id = i;
+    message[i].start = start_index;
+    if (i == (num_threads - 1)) {
+      message[i].end = total_boxes;
+    } else {
+      message[i].end = (start_index + num_divs - 1);
+    }
+    start_index = start_index + num_divs;
+  }
 
   while(1){
       total_iterations++;
-      convergenceLoop();
+      int result = 0;
+      pthread_barrier_init(&our_barrier,NULL,num_threads);
+      //printf("Threads created\n");
+
+      for(int i = 0; i < num_threads; i++) {
+        result = pthread_create(&threads[i], NULL, compute_dsv, (void *) &message[i]);
+        
+      }
+
+      for (int i = 0; i < num_threads; i++) {
+        result = pthread_join(threads[i], NULL);
+      }
+      pthread_barrier_destroy(&our_barrier);
+      cur_min_dsv =  dsv_c[0];
+      cur_max_dsv =  dsv_c[0];
+      grid_boxes[0].temp = dsv_c[0];
+
+      for(int curx=1; curx<total_boxes; curx++){
+          grid_boxes[curx].temp = dsv_c[curx];
+          cur_max_dsv = max(cur_max_dsv,  dsv_c[curx]);
+          cur_min_dsv = min(cur_min_dsv,  dsv_c[curx]);
+      }
+
       int diff = (cur_max_dsv - cur_min_dsv) <= (epsilon*cur_max_dsv) ? 1 : 0;
       if(diff==1) break;
 
@@ -457,6 +481,8 @@ int main(int argc, char *argv[])
       
   }
   free(grid_boxes);
+  free(threads);
+  free(dsv_c);
 
   return 0;
 }
