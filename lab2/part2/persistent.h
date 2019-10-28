@@ -44,6 +44,7 @@ double cur_max_dsv = DBL_MIN;
 
 pthread_barrier_t our_barrier;
 pthread_t *threads;
+int total_iterations = 0;
 
 double min(double a, double b);
 double max(double a, double b);
@@ -55,4 +56,4 @@ void printBoxes();
 
 void calculateDsvForBox(int box_index);
 
-void *compute_dsv(void *range);
+void* convergenceLoop(void *range);
