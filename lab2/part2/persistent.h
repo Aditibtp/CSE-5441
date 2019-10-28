@@ -23,12 +23,12 @@ typedef struct Grid_boxes{
   int *right_list;
 } Grid_box;
 
-/* Structure contains the thread specific data. */
-typedef struct thread_data{
-  int thread_id; // Thread ID.
-  int start; // Starting box number in the grid. 
-  int end; // End box number in the grid. 
-} thread_data;
+/* Structure sent as param to thread safe func */
+typedef struct Thread_range{
+  int thread_id; //thread ID.
+  int start; //start grid index
+  int end; // end grid index
+} thread_range;
 
 #define DBL_MAX 1.7976931348623158e+308 /* max value */
 #define DBL_MIN 2.2250738585072014e-308 /* min positive value */
@@ -41,6 +41,9 @@ double affect_rate = 0.1;
 int num_threads = 4;
 double cur_min_dsv = DBL_MAX;
 double cur_max_dsv = DBL_MIN;
+
+pthread_barrier_t our_barrier;
+pthread_t *threads;
 
 double min(double a, double b);
 double max(double a, double b);
