@@ -1,10 +1,7 @@
-all: disposable persistent
+all: lab4p1
 
-disposable: sharma_aditi_disposable.c
-	gcc -O3  sharma_aditi_disposable.c -o disposable -lrt -lpthread -fopenmp
-
-persistent: sharma_aditi_persistent.c
-	gcc -O3  sharma_aditi_persistent.c -o persistent -lrt -lpthread -fopenmp
+lab4p1: sharma_aditi_lab4.cu
+	nvcc -O -o lab4p1 sharma_aditi_lab4.cu
 
 clean:
-	rm disposable persistent
+	rm lab4p1 
