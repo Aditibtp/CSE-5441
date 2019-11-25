@@ -1,7 +1,7 @@
 #include <pthread.h>
 #include <omp.h>
 #include <mpi.h>
-#include "sharma_aditi_disposable.h"
+#include "sharma_aditi_lab5.h"
 
 
 double max(double a, double b){
@@ -43,22 +43,22 @@ void printBoxes(){
       
       printf("Left neighbours: ");
       for(int j=0; j<grid_boxes[i].left_n; j++){
-        printf("%d ", grid_boxes[i].left_list[j]);
+        //printf("%d ", grid_boxes[i].left_list[][j]);
       }
       printf("\nRight neighbours: ");
 
       for(int j=0; j<grid_boxes[i].right_n; j++){
-        printf("%d ", grid_boxes[i].right_list[j]);
+        //printf("%d ", grid_boxes[i].right_list[j]);
       }
       printf("\ntop neighbours: ");
 
       for(int j=0; j<grid_boxes[i].top_n; j++){
-        printf("%d ", grid_boxes[i].top_list[j]);
+       // printf("%d ", grid_boxes[i].top_list[j]);
       }
       printf("\nbottom neighbours: ");
 
       for(int j=0; j<grid_boxes[i].bot_n; j++){
-        printf("%d ", grid_boxes[i].bot_list[j]);
+      //  printf("%d ", grid_boxes[i].bot_list[j]);
       }
 
       printf("\n*******\n");
@@ -85,7 +85,8 @@ void calculateDsvForBox(int box_index){
   if(grid_boxes[cur].top_n > 0){
       box_peri += cw;
       for(int tn = 0; tn<grid_boxes[cur].top_n; tn++){
-        cur_box = grid_boxes[cur].top_list[tn];
+        //cur_box = grid_boxes[cur].top_list[cur][tn];
+        cur_box = top_list[cur][tn];
         ov_start = imax(grid_boxes[cur_box].xc, cxc);
         ov_end = imin(grid_boxes[cur_box].xc + grid_boxes[cur_box].width, cxc + cw);
         overlap = ov_end - ov_start;
@@ -102,7 +103,8 @@ void calculateDsvForBox(int box_index){
   if(grid_boxes[cur].right_n > 0){
     box_peri += ch;
     for(int rn = 0; rn<grid_boxes[cur].right_n; rn++){
-        cur_box = grid_boxes[cur].right_list[rn];
+        //cur_box = grid_boxes[cur].right_list[rn];
+        cur_box = right_list[cur][rn];
         ov_start = imax(grid_boxes[cur_box].yc, cyc);
         ov_end = imin(grid_boxes[cur_box].yc + grid_boxes[cur_box].height, cyc + ch);
         overlap = ov_end - ov_start;
@@ -119,7 +121,8 @@ void calculateDsvForBox(int box_index){
   if(grid_boxes[cur].bot_n > 0){
     box_peri += cw;
     for(int bn = 0; bn<grid_boxes[cur].bot_n; bn++){
-        cur_box = grid_boxes[cur].bot_list[bn];
+        //cur_box = grid_boxes[cur].bot_list[bn];
+        cur_box = bot_list[cur][bn];
         ov_start = imax(grid_boxes[cur_box].xc, cxc);
         ov_end = imin(grid_boxes[cur_box].xc + grid_boxes[cur_box].width, cxc + cw);
         overlap = ov_end - ov_start;
@@ -137,7 +140,8 @@ void calculateDsvForBox(int box_index){
   if(grid_boxes[cur].left_n > 0){
     box_peri += ch;
     for(int ln = 0; ln<grid_boxes[cur].left_n; ln++){
-        cur_box = grid_boxes[cur].left_list[ln];
+        //cur_box = grid_boxes[cur].left_list[ln];
+        cur_box = left_list[cur][ln];
         ov_start = imax(grid_boxes[cur_box].yc, cyc);
         ov_end = imin(grid_boxes[cur_box].yc + grid_boxes[cur_box].height, cyc + ch);
         overlap = ov_end - ov_start;
@@ -154,7 +158,7 @@ void calculateDsvForBox(int box_index){
   dsv_c[cur] = cur_temp - offset;
 }
 
-void compute_dsv(thread_range *mydata){
+void compute_dsv(box_range *mydata){
   //printf("computing dsv");
   //thread_range *mydata = (thread_range*) range;
   //printf("computing dsv from %d to %d \n",  mydata->start, mydata->end );
@@ -189,10 +193,38 @@ int main(int argc, char *argv[]){
 
   MPI_Init(NULL, NULL);
 
-  int world_size = 5;
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-  int p_rank = 0;
+  int p_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &p_rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+  
+    
+    int blocklengths[10] = {1,1,1,1,1,1,1,1,1,1};
+    MPI_Datatype types[10] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT,MPI_INT ,MPI_INT, MPI_INT, MPI_DOUBLE};
+    MPI_Aint array_of_displacements[] = { offsetof( Grid_box, box_id ),
+                                        offsetof( Grid_box, top_n ),
+                                        offsetof( Grid_box, bot_n ),
+                                        offsetof( Grid_box, left_n ),
+                                        offsetof( Grid_box, right_n ),
+                                        offsetof( Grid_box, xc ),
+                                        offsetof( Grid_box, yc ),
+                                        offsetof( Grid_box, height ),
+                                        offsetof( Grid_box, width ),
+                                        offsetof( Grid_box, temp )
+                                    };
+                                      
+    MPI_Datatype grid_box_type;
+   
+    
+    MPI_Type_create_struct(10, blocklengths, array_of_displacements, types, &grid_box_type);
+    MPI_Type_commit(&grid_box_type);
+  
+  printf("process rank %d\n", p_rank);
+  
+  int total_iterations = 0;
+  Grid_box *gb_chunks; 
+
+
   
   if(p_rank == 0) {
       //reading first line containng number of boxes, rows and cols
@@ -217,6 +249,11 @@ int main(int argc, char *argv[]){
 
     }
     
+    int num_divs = total_boxes/NUM_WORKERS;
+    printf("total boxes seen %d\n", total_boxes);
+    printf("Num divs %d\n", num_divs);
+    box_range p_message[NUM_WORKERS];
+    int init_index = 0;
     //do all the mallocs
     grid_boxes = malloc(sizeof(Grid_box) * total_boxes);
 
@@ -226,6 +263,8 @@ int main(int argc, char *argv[]){
     right_list = malloc(sizeof(int*)*total_boxes);
 
     dsv_c = malloc(sizeof(double) * total_boxes);
+    
+    printf("done with mallocs \n");
     int t=0;
     
     while (fgets(line, sizeof(line), stdin)) {
@@ -244,8 +283,7 @@ int main(int argc, char *argv[]){
         }else if(linecounter == 1){
           
           i=0;
-          while(ptr != NULL)
-            {
+          while(ptr != NULL){
           
             if(ptr && i==0){
               gb.yc = (int) strtol(ptr, (char **)NULL, 10);
@@ -259,25 +297,26 @@ int main(int argc, char *argv[]){
             i++;
             ptr = strtok(NULL, delim);
               
-           }
+          }
         }else if(linecounter == 2){
          
           j=0;
           i=0;
           while(ptr != NULL)
-            {
+          {
             if(ptr && i==0){
               gb.top_n = (int) strtol(ptr, (char **)NULL, 10);
               top_list[i] = malloc(sizeof(int)*(gb.top_n));
+              printf("done with mallocs to top list \n");
               //gb.top_list = malloc(sizeof(int)*(gb.top_n));
             }else if(ptr && i>=1 && j < gb.top_n){
-               gb.top_list[i][j] = (int) strtol(ptr, (char **)NULL, 10);
+               top_list[i][j] = (int) strtol(ptr, (char **)NULL, 10);
                j++;
             }
             i++;
             ptr = strtok(NULL, delim);
               
-           }
+          }
         }else if(linecounter == 3){
           j=0;
           i=0;
@@ -340,38 +379,75 @@ int main(int argc, char *argv[]){
             grid_boxes[t] = gb;
             t++;
         }
+        printf("done with all mallocs for box %d\n", t);
         if(t==total_boxes)break;
     }
+    
+        printf("good till here parsed file in %d process \n", p_rank);
+        
+        //sending data to other process 
+        printf("broadcast total_boxes to all other processes \n");
+        MPI_Bcast(&total_boxes, 1, MPI_INT, 0, MPI_COMM_WORLD);
+            
+       //divide the grids among threads
+       for (int i = 0; i < NUM_WORKERS; i++) {
+        // MPI_Send(&total_boxes, 1, MPI_INT, i+1, 12, MPI_COMM_WORLD);
+        
+         p_message[i].p_rank = i+1;
+         p_message[i].start = init_index;
+         if (i == (NUM_WORKERS - 1)) {
+           p_message[i].end = total_boxes-1;
+         } else {
+           p_message[i].end = (init_index + num_divs - 1);
+         }
+         init_index = init_index + num_divs;
+         if(i < NUM_WORKERS -1)
+             gb_chunks =  malloc(sizeof(Grid_box) * num_divs);
+         else
+             gb_chunks =  malloc(sizeof(Grid_box) * (total_boxes - (NUM_WORKERS-1)*num_divs ) );
+        
+         for(int k = p_message[i].start; k<=p_message[i].end; k++){
+              gb_chunks[k] = grid_boxes[k];
+         }
+         int nums = p_message[i].end - p_message[i].start  + 1;
+          printf("sending to process %d\n", i+1);
+          MPI_Send(gb_chunks, nums, grid_box_type, i+1, 14, MPI_COMM_WORLD);
+         
+         free(gb_chunks);
+      }
+       
+    
   }
-
-
   
-  int total_iterations = 0;
-
-  int num_divs = total_boxes/num_process;
-  box_range p_message[num_process];
-  int init_index = 0;
-
-  //divide the grids among threads
-  for (int i = 1; i < num_process; i++) {
-    p_message[i].p_rank = i;
-    p_message[i].start = init_index;
-    if (i == (num_process - 1)) {
-      p_message[i].end = total_boxes;
-    } else {
-      p_message[i].end = (init_index + num_divs - 1);
-    }
-    init_index = init_index + num_divs;
-  }
-
-  if(p_rank == 0){
-    MPI_Datatype types[2] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT,
-                              MPI_DOUBLE,  };
-    MPI_Datatype grid_box_type;
-    //sending data to other process 
-
-  }else if(p_rank > 0){
+  MPI_Barrier(MPI_COMM_WORLD);
+  
+  if(p_rank > 0){
     //receive data
+     MPI_Status status;
+     const int src=0;
+     int total_boxes = 0;
+     printf("receiving at process %d\n", p_rank);
+     MPI_Bcast(&total_boxes, 1, MPI_INT, 0, MPI_COMM_WORLD);
+      //MPI_Recv(&total_boxes, 1, MPI_INT, src, 12, MPI_COMM_WORLD, &status);
+      printf("total boxes received at %d, is %d \n", p_rank, total_boxes);
+      int num_divs = total_boxes/NUM_WORKERS;
+      printf("total boxes received %d\n", num_divs);
+    
+    Grid_box *gb_recv;
+    
+    
+     if(p_rank < NUM_WORKERS){
+         gb_recv =  malloc(sizeof(Grid_box) * num_divs);
+        MPI_Recv(&gb_recv, num_divs, grid_box_type, src, 14, MPI_COMM_WORLD, &status);
+     }else{
+         gb_recv =  malloc(sizeof(Grid_box) * (total_boxes - (NUM_WORKERS-1)*num_divs ) );
+        MPI_Recv(&gb_recv, (total_boxes - (NUM_WORKERS-1)*num_divs ), grid_box_type, src, 14, MPI_COMM_WORLD, &status);
+     }
+        
+
+    
+    printf("Rank %d: Received: box_id = %d height = %d\n", p_rank,
+             gb_recv[0].box_id, gb_recv[0].height);
   }
 
   return 0;
