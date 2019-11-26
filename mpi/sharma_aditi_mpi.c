@@ -169,27 +169,7 @@ void compute_dsv(box_range *mydata){
 
 int main(int argc, char *argv[]){
   
-  int row = 0;
-  int col = 0;
-  char line[500];
-  int linecounter = 0;
-  char delim[] = " \t";
-  int threads_created = 0;
   
-  int i=0;
-  int j=0;
-  int k=0;
-  
-  struct timespec start, end;
-  double timediff;
-
-  if(argc != 3){
-    printf("Please provide correct number of arguments in the following order: <Number of threads> <AFFECT_RATE> <Number of threads> <EPSILON> <INPUT_FILE>\n");
-    exit(0);
-  }
-  
-  sscanf(argv[1], "%lf", &affect_rate);
-  sscanf(argv[2], "%lf", &epsilon);
 
   MPI_Init(NULL, NULL);
 
@@ -199,9 +179,9 @@ int main(int argc, char *argv[]){
 
   
     
-    int blocklengths[10] = {1,1,1,1,1,1,1,1,1,1};
-    MPI_Datatype types[10] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT,MPI_INT ,MPI_INT, MPI_INT, MPI_DOUBLE};
-    MPI_Aint array_of_displacements[] = { offsetof( Grid_box, box_id ),
+  int blocklengths[10] = {1,1,1,1,1,1,1,1,1,1};
+  MPI_Datatype types[10] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT,MPI_INT ,MPI_INT, MPI_INT, MPI_DOUBLE};
+  MPI_Aint array_of_displacements[] = { offsetof( Grid_box, box_id ),
                                         offsetof( Grid_box, top_n ),
                                         offsetof( Grid_box, bot_n ),
                                         offsetof( Grid_box, left_n ),
@@ -213,13 +193,13 @@ int main(int argc, char *argv[]){
                                         offsetof( Grid_box, temp )
                                     };
                                       
-    MPI_Datatype grid_box_type;
+  MPI_Datatype grid_box_type;
    
     
-    MPI_Type_create_struct(10, blocklengths, array_of_displacements, types, &grid_box_type);
-    MPI_Type_commit(&grid_box_type);
+  MPI_Type_create_struct(10, blocklengths, array_of_displacements, types, &grid_box_type);
+  MPI_Type_commit(&grid_box_type);
   
-  printf("process rank %d\n", p_rank);
+  printf("process rank started %d\n", p_rank);
   
   int total_iterations = 0;
   Grid_box *gb_chunks; 
@@ -227,6 +207,29 @@ int main(int argc, char *argv[]){
 
   
   if(p_rank == 0) {
+    
+    int row = 0;
+    int col = 0;
+    char line[500];
+    int linecounter = 0;
+    char delim[] = " \t";
+    int threads_created = 0;
+     
+    int i=0;
+    int j=0;
+    int k=0;
+      
+    struct timespec start, end;
+    double timediff;
+    printf("runs 0 multiple times\n");
+
+    if(argc != 3){
+      printf("Please provide correct number of arguments in the following order: <Number of threads> <AFFECT_RATE> <Number of threads> <EPSILON> <INPUT_FILE>\n");
+      exit(0);
+    }
+    
+    sscanf(argv[1], "%lf", &affect_rate);
+    sscanf(argv[2], "%lf", &epsilon);
       //reading first line containng number of boxes, rows and cols
     if(fgets(line, sizeof(line), stdin)){
       i=0;
@@ -252,7 +255,6 @@ int main(int argc, char *argv[]){
     int num_divs = total_boxes/NUM_WORKERS;
     printf("total boxes seen %d\n", total_boxes);
     printf("Num divs %d\n", num_divs);
-    box_range p_message[NUM_WORKERS];
     int init_index = 0;
     //do all the mallocs
     grid_boxes = malloc(sizeof(Grid_box) * total_boxes);
@@ -269,153 +271,135 @@ int main(int argc, char *argv[]){
     
     while (fgets(line, sizeof(line), stdin)) {
         
-        if(emptyline(line)) continue;
+      if(emptyline(line)) continue;
         
-        Grid_box gb;
+      Grid_box gb;
 
+      i=0;
+      char *ptr = strtok(line, delim);
+      if(linecounter == 7) linecounter = 0;
+      if(linecounter == 0){
+            
+          gb.box_id = (int) strtol(ptr, (char **)NULL, 10);
+            
+      }else if(linecounter == 1){
+          
         i=0;
-        char *ptr = strtok(line, delim);
-        if(linecounter == 7) linecounter = 0;
-        if(linecounter == 0){
-            
-            gb.box_id = (int) strtol(ptr, (char **)NULL, 10);
-            
-        }else if(linecounter == 1){
+        while(ptr != NULL){
           
-          i=0;
-          while(ptr != NULL){
-          
-            if(ptr && i==0){
-              gb.yc = (int) strtol(ptr, (char **)NULL, 10);
-            }else if(ptr && i==1){
-                gb.xc = (int) strtol(ptr, (char **)NULL, 10);
-            }else if(i==2 && ptr){
-                gb.height = (int) strtol(ptr, (char **)NULL, 10);
-            }else if(ptr){
-                gb.width = (int) strtol(ptr, (char **)NULL, 10);
-            }
-            i++;
-            ptr = strtok(NULL, delim);
-              
+          if(ptr && i==0){
+            gb.yc = (int) strtol(ptr, (char **)NULL, 10);
+          }else if(ptr && i==1){
+              gb.xc = (int) strtol(ptr, (char **)NULL, 10);
+          }else if(i==2 && ptr){
+              gb.height = (int) strtol(ptr, (char **)NULL, 10);
+          }else if(ptr){
+              gb.width = (int) strtol(ptr, (char **)NULL, 10);
           }
-        }else if(linecounter == 2){
-         
-          j=0;
-          i=0;
-          while(ptr != NULL)
-          {
-            if(ptr && i==0){
-              gb.top_n = (int) strtol(ptr, (char **)NULL, 10);
-              top_list[i] = malloc(sizeof(int)*(gb.top_n));
-              printf("done with mallocs to top list \n");
-              //gb.top_list = malloc(sizeof(int)*(gb.top_n));
-            }else if(ptr && i>=1 && j < gb.top_n){
-               top_list[i][j] = (int) strtol(ptr, (char **)NULL, 10);
-               j++;
-            }
-            i++;
-            ptr = strtok(NULL, delim);
-              
-          }
-        }else if(linecounter == 3){
-          j=0;
-          i=0;
-          while(ptr != NULL)
-          {
-            if(ptr && i==0){
-              gb.bot_n = (int) strtol(ptr, (char **)NULL, 10);
-              bot_list[i] = malloc(sizeof(int)*(gb.bot_n));
-
-              //gb.bot_list = malloc(sizeof(int)*(gb.bot_n));
-            }else if(ptr && i>=1 &&j < gb.bot_n){
-               bot_list[i][j] = (int) strtol(ptr, (char **)NULL, 10);
-               j++;
-            }
-            i++;
-            ptr = strtok(NULL, delim);
-              
-          }
-        }else if(linecounter == 4){
-          j=0;
-          i=0;
-          while(ptr != NULL)
-            {
-           if(ptr && i==0){
-              gb.left_n = (int) strtol(ptr, (char **)NULL, 10);
-              left_list[i] = malloc(sizeof(int)*(gb.left_n));
-             // gb.left_list = malloc(sizeof(int)*(gb.left_n));
-            }else if(ptr && i>=1  &&j < gb.left_n){
-               left_list[i][j] = (int) strtol(ptr, (char **)NULL, 10);
-               j++;
-            }
-            i++;
-            ptr = strtok(NULL, delim);
-              
-           }
-        }else if(linecounter == 5){
-          j=0;
-          i=0;
-          while(ptr != NULL)
-            {
-            if(ptr && i==0){
-              gb.right_n = (int) strtol(ptr, (char **)NULL, 10);
-              right_list[i] = malloc(sizeof(int)*(gb.right_n));
-              //gb.right_list = malloc(sizeof(int)*(gb.right_n));
-            }else if(ptr && i>=1  &&j < gb.right_n){
-               right_list[i][j] = (int) strtol(ptr, (char **)NULL, 10);
-               j++;
-            }
-            i++;
-            ptr = strtok(NULL, delim);
-              
-           }
-        }else if(linecounter == 6){
-            sscanf(ptr, "%lf", &gb.temp);
-            cur_max_dsv = gb.temp > cur_max_dsv ? gb.temp : cur_max_dsv;
-            cur_min_dsv = gb.temp < cur_min_dsv ? gb.temp : cur_min_dsv;
+          i++;
+          ptr = strtok(NULL, delim);
+            
         }
-        linecounter++;
-        if(linecounter == 7){
-            grid_boxes[t] = gb;
-            t++;
+      }else if(linecounter == 2){
+       
+        j=0;
+        i=0;
+        while(ptr != NULL)
+        {
+          if(ptr && i==0){
+            gb.top_n = (int) strtol(ptr, (char **)NULL, 10);
+            top_list[t] = malloc(sizeof(int)*(gb.top_n));
+            printf("done with mallocs to top list \n");
+            //gb.top_list = malloc(sizeof(int)*(gb.top_n));
+          }else if(ptr && i>=1 && j < gb.top_n){
+             top_list[t][j] = (int) strtol(ptr, (char **)NULL, 10);
+             j++;
+          }
+           i++;
+           ptr = strtok(NULL, delim);
+             
         }
-        printf("done with all mallocs for box %d\n", t);
-        if(t==total_boxes)break;
+      }else if(linecounter == 3){
+        j=0;
+        i=0;
+        while(ptr != NULL)
+        {
+          if(ptr && i==0){
+            gb.bot_n = (int) strtol(ptr, (char **)NULL, 10);
+            bot_list[t] = malloc(sizeof(int)*(gb.bot_n));
+             //gb.bot_list = malloc(sizeof(int)*(gb.bot_n));
+          }else if(ptr && i>=1 &&j < gb.bot_n){
+             bot_list[t][j] = (int) strtol(ptr, (char **)NULL, 10);
+             j++;
+          }
+          i++;
+          ptr = strtok(NULL, delim);
+            
+        }
+      }else if(linecounter == 4){
+        j=0;
+        i=0;
+        while(ptr != NULL){
+         if(ptr && i==0){
+            gb.left_n = (int) strtol(ptr, (char **)NULL, 10);
+            left_list[t] = malloc(sizeof(int)*(gb.left_n));
+           // gb.left_list = malloc(sizeof(int)*(gb.left_n));
+          }else if(ptr && i>=1  &&j < gb.left_n){
+             left_list[t][j] = (int) strtol(ptr, (char **)NULL, 10);
+             j++;
+          }
+          i++;
+          ptr = strtok(NULL, delim);
+            
+        }
+      }else if(linecounter == 5){
+        j=0;
+        i=0;
+        while(ptr != NULL){
+          if(ptr && i==0){
+            gb.right_n = (int) strtol(ptr, (char **)NULL, 10);
+            right_list[t] = malloc(sizeof(int)*(gb.right_n));
+            //gb.right_list = malloc(sizeof(int)*(gb.right_n));
+          }else if(ptr && i>=1  &&j < gb.right_n){
+             right_list[t][j] = (int) strtol(ptr, (char **)NULL, 10);
+             j++;
+          }
+          i++;
+          ptr = strtok(NULL, delim);
+            
+        }
+      }else if(linecounter == 6){
+          sscanf(ptr, "%lf", &gb.temp);
+          cur_max_dsv = gb.temp > cur_max_dsv ? gb.temp : cur_max_dsv;
+          cur_min_dsv = gb.temp < cur_min_dsv ? gb.temp : cur_min_dsv;
+      }
+      linecounter++;
+      if(linecounter == 7){
+          grid_boxes[t] = gb;
+          t++;
+      }
+      printf("done with all mallocs for box %d\n", t);
+      printf("line counter %d\n", linecounter);
+      if(t==total_boxes)break;
     }
     
-        printf("good till here parsed file in %d process \n", p_rank);
-        
-        //sending data to other process 
-        printf("broadcast total_boxes to all other processes \n");
-        MPI_Bcast(&total_boxes, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    printf("good till here parsed file in %d process \n", p_rank);
+   
+    //sending data to other process 
+    printf("broadcast total_boxes to all other processes \n");
+    MPI_Bcast(&total_boxes, 1, MPI_INT, 0, MPI_COMM_WORLD);
             
        //divide the grids among threads
-       for (int i = 0; i < NUM_WORKERS; i++) {
-        // MPI_Send(&total_boxes, 1, MPI_INT, i+1, 12, MPI_COMM_WORLD);
-        
-         p_message[i].p_rank = i+1;
-         p_message[i].start = init_index;
-         if (i == (NUM_WORKERS - 1)) {
-           p_message[i].end = total_boxes-1;
-         } else {
-           p_message[i].end = (init_index + num_divs - 1);
-         }
-         init_index = init_index + num_divs;
-         if(i < NUM_WORKERS -1)
-             gb_chunks =  malloc(sizeof(Grid_box) * num_divs);
-         else
-             gb_chunks =  malloc(sizeof(Grid_box) * (total_boxes - (NUM_WORKERS-1)*num_divs ) );
-        
-         for(int k = p_message[i].start; k<=p_message[i].end; k++){
-              gb_chunks[k] = grid_boxes[k];
-         }
-         int nums = p_message[i].end - p_message[i].start  + 1;
-          printf("sending to process %d\n", i+1);
-          MPI_Send(gb_chunks, nums, grid_box_type, i+1, 14, MPI_COMM_WORLD);
-         
-         free(gb_chunks);
-      }
-       
+    for (int i = 0; i < NUM_WORKERS; i++) {
+  // MPI_Send(&total_boxes, 1, MPI_INT, i+1, 12, MPI_COMM_WORLD);
+     int off_index = num_divs*i;
+     if(i < NUM_WORKERS-1)
+        MPI_Send(&grid_boxes[off_index], num_divs, grid_box_type, i+1, 14, MPI_COMM_WORLD);
+     else
+        MPI_Send(&grid_boxes[off_index], num_divs + (total_boxes%4), grid_box_type, i+1, 14, MPI_COMM_WORLD);
+    
+    }
+      
     
   }
   
@@ -431,15 +415,17 @@ int main(int argc, char *argv[]){
       //MPI_Recv(&total_boxes, 1, MPI_INT, src, 12, MPI_COMM_WORLD, &status);
       printf("total boxes received at %d, is %d \n", p_rank, total_boxes);
       int num_divs = total_boxes/NUM_WORKERS;
-      printf("total boxes received %d\n", num_divs);
+      printf("num_divs received %d\n", num_divs);
     
     Grid_box *gb_recv;
     
     
      if(p_rank < NUM_WORKERS){
+          printf("allocating p_rank %d %d\n", p_rank, num_divs);
          gb_recv =  malloc(sizeof(Grid_box) * num_divs);
         MPI_Recv(&gb_recv, num_divs, grid_box_type, src, 14, MPI_COMM_WORLD, &status);
      }else{
+          printf("allocating %d %d\n", p_rank, (total_boxes - (NUM_WORKERS-1)*num_divs ) );
          gb_recv =  malloc(sizeof(Grid_box) * (total_boxes - (NUM_WORKERS-1)*num_divs ) );
         MPI_Recv(&gb_recv, (total_boxes - (NUM_WORKERS-1)*num_divs ), grid_box_type, src, 14, MPI_COMM_WORLD, &status);
      }
@@ -449,6 +435,9 @@ int main(int argc, char *argv[]){
     printf("Rank %d: Received: box_id = %d height = %d\n", p_rank,
              gb_recv[0].box_id, gb_recv[0].height);
   }
-
+  
+  MPI_Finalize();
   return 0;
 }
+
+
