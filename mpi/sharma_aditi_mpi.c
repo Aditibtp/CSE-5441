@@ -527,11 +527,12 @@ int main(int argc, char *argv[]){
             
 
                 rright_list[i] = malloc(sizeof(int) * gb_recv[i].right_n);
-                MPI_Recv(&rright_list[i][0], gb_recv[i].right_n, MPI_INT, src, 17, MPI_COMM_WORLD, &status);
+                MPI_Recv(&rright_list[i][0], gb_recv[i].right_n, MPI_INT, src, 18, MPI_COMM_WORLD, &status);
             
             //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
         }
         printf("nerighbors done at %d\n", p_rank);
+          
      }
      
      printf("%d done with boxes\n", p_rank);
@@ -548,15 +549,9 @@ int main(int argc, char *argv[]){
      MPI_Barrier( slaves );
      printBoxes(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, total_boxes);
     printf("Rank %d: Received: box_id = %d height = %d\n", p_rank, gb_recv[(p_rank-1)*num_divs].box_id, gb_recv[(p_rank-1)*num_divs].height);
-    
-    
-   
-    
-    dsv_c = (double*) malloc(total_boxes * sizeof(double));
-    
-    
-    printf("***************starting dsv loop for p_rank: %d ******************\n", p_rank);
+    dsv_c = (double*) malloc(total_boxes * sizeof(double));  
     if(p_rank == 1){
+         printf("***************starting dsv loop for p_rank: %d ******************\n", p_rank);
         for(int i = 0; i < num_divs; i++){
           
           calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
@@ -564,18 +559,21 @@ int main(int argc, char *argv[]){
     }
     
     if(p_rank == 2){
+         printf("***************starting dsv loop for p_rank: %d ******************\n", p_rank);
         for(int i = num_divs; i < 2*num_divs; i++){
           calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
         }
     }
     
     if(p_rank == 3){
+         printf("***************starting dsv loop for p_rank: %d ******************\n", p_rank);
         for(int i = 2*num_divs; i < 3*num_divs; i++){
           calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
         }
     }
     
     if(p_rank == 4){
+         printf("***************starting dsv loop for p_rank: %d ******************\n", p_rank);
         for(int i = 3*num_divs; i < total_boxes; i++){
           calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
         }
