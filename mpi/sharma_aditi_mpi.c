@@ -29,11 +29,19 @@ int imax(int a, int b){
 int imin(int a, int b){
   return a<b ? a : b;
 }
-
+int p_rank;
+       Grid_box *gb_recv;
+     int **rbot_list;
+     int **rtop_list;
+     int **rleft_list;
+     int **rright_list;
+     int num_divs, total_boxes;
+     double *dsv_c;
   //printf("total boxes again %d\n", t);
   //printing all the grid boxes
 
 void printBoxes(Grid_box *grid_boxes, int **top_list, int **bot_list, int **left_list, int **right_list, int total_boxes){
+   // printf("p_rank in printbox %d \n", p_rank);
     for(int i=0; i<total_boxes; i++){
       printf("box id %d\n", grid_boxes[i].box_id);
       printf("box temprature %lf\n", grid_boxes[i].temp);
@@ -67,7 +75,10 @@ void printBoxes(Grid_box *grid_boxes, int **top_list, int **bot_list, int **left
 }
 
 void calculateDsvForBox(Grid_box *grid_boxes, int **top_list, int **bot_list, int **left_list, int **right_list, int box_index){
-
+  
+ // printf("box id is %d---- p_rank %d  temp[%d]:  %lf\n", box_index, p_rank, box_index, grid_boxes[box_index].temp);
+  
+  
   int cur = box_index;
   int cxc = grid_boxes[cur].xc;
   int cyc = grid_boxes[cur].yc;
@@ -75,6 +86,7 @@ void calculateDsvForBox(Grid_box *grid_boxes, int **top_list, int **bot_list, in
   int cw = grid_boxes[cur].width;
   dsv_c[cur] = 0;
   int box_peri = 0;
+  double acc = 0;
   
   //top neighbours
   int cur_box = 0; 
@@ -91,7 +103,9 @@ void calculateDsvForBox(Grid_box *grid_boxes, int **top_list, int **bot_list, in
         ov_end = imin(grid_boxes[cur_box].xc + grid_boxes[cur_box].width, cxc + cw);
         overlap = ov_end - ov_start;
         dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
+        acc += (overlap*grid_boxes[cur_box].temp);
     }
+  //  printf("top dsv_c[%d] :%lf  %lf \n",cur, dsv_c[cur], acc  );
   }
   
   //right neighbours
@@ -109,7 +123,9 @@ void calculateDsvForBox(Grid_box *grid_boxes, int **top_list, int **bot_list, in
         ov_end = imin(grid_boxes[cur_box].yc + grid_boxes[cur_box].height, cyc + ch);
         overlap = ov_end - ov_start;
         dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
+        acc += (overlap*grid_boxes[cur_box].temp);
     }
+   // printf("right dsv_c[%d] :%lf  %lf \n",cur, dsv_c[cur], acc  );
 }
   
   //bottom neighbours
@@ -128,7 +144,9 @@ void calculateDsvForBox(Grid_box *grid_boxes, int **top_list, int **bot_list, in
         overlap = ov_end - ov_start;
         //printf("bottom Neighbour and temp overlap %d %d %lf\n", overlap, cur_box, grid_boxes[cur_box].temp);
         dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
+        acc += (overlap*grid_boxes[cur_box].temp);
     }
+   // printf("bot dsv_c[%d] :%lf  %lf \n",cur, dsv_c[cur], acc  );
   }
   
   //left neighbours
@@ -146,14 +164,17 @@ void calculateDsvForBox(Grid_box *grid_boxes, int **top_list, int **bot_list, in
         ov_end = imin(grid_boxes[cur_box].yc + grid_boxes[cur_box].height, cyc + ch);
         overlap = ov_end - ov_start;
         dsv_c[cur] += (overlap*grid_boxes[cur_box].temp);
+        acc += (overlap*grid_boxes[cur_box].temp);
     }
+   // printf("left dsv_c[%d] :%lf  %lf \n",cur, dsv_c[cur], acc );
   }
   double offset = 0;
 
   double cur_temp = grid_boxes[cur].temp;
+ //printf("box peri[i] : %d %d \n",cur, box_peri );
   if(box_peri > 0){
     double avg_dsv = dsv_c[cur]/(double)box_peri;
-    offset = ((cur_temp - avg_dsv)*affect_rate);
+    offset = ((cur_temp - avg_dsv)*0.1);
   }
   dsv_c[cur] = cur_temp - offset;
 }
@@ -173,7 +194,7 @@ int main(int argc, char *argv[]){
 
   MPI_Init(NULL, NULL);
 
-  int p_rank;
+  
   MPI_Comm_rank(MPI_COMM_WORLD, &p_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
   MPI_Comm slaves;
@@ -211,7 +232,7 @@ int main(int argc, char *argv[]){
     
     int row = 0;
     int col = 0;
-    char line[500];
+    char *line;
     int linecounter = 0;
     char delim[] = " \t";
     int threads_created = 0;
@@ -232,7 +253,15 @@ int main(int argc, char *argv[]){
     sscanf(argv[1], "%lf", &affect_rate);
     sscanf(argv[2], "%lf", &epsilon);
       //reading first line containng number of boxes, rows and cols
-    if(fgets(line, sizeof(line), stdin)){
+    FILE * fp;
+    fp = fopen("testgrid_1", "r");
+    if (fp == NULL)
+        exit(EXIT_FAILURE);
+     
+     size_t len = 0;
+     ssize_t read;
+        
+    if((read = getline(&line, &len, fp)) != -1){
       i=0;
       char *ptr = strtok(line, delim);
 
@@ -267,10 +296,10 @@ int main(int argc, char *argv[]){
 
     dsv_c = malloc(sizeof(double) * total_boxes);
     
-    printf("done with mallocs \n");
+   // printf("done with mallocs \n");
     int t=0;
     
-    while (fgets(line, sizeof(line), stdin)) {
+    while((read = getline(&line, &len, fp)) != -1) {
         
       if(emptyline(line)) continue;
         
@@ -310,7 +339,7 @@ int main(int argc, char *argv[]){
           if(ptr && i==0){
             gb.top_n = (int) strtol(ptr, (char **)NULL, 10);
             top_list[t] = malloc(sizeof(int)*(gb.top_n));
-            printf("done with mallocs to top list \n");
+         //   printf("done with mallocs to top list \n");
             //gb.top_list = malloc(sizeof(int)*(gb.top_n));
           }else if(ptr && i>=1 && j < gb.top_n){
              top_list[t][j] = (int) strtol(ptr, (char **)NULL, 10);
@@ -379,13 +408,13 @@ int main(int argc, char *argv[]){
           grid_boxes[t] = gb;
           t++;
       }
-      printf("done with all mallocs for box %d\n", t);
-      printf("line counter %d\n", linecounter);
+     // printf("done with all mallocs for box %d\n", t);
+     // printf("line counter %d\n", linecounter);
       if(t==total_boxes)break;
     }
     
-    printBoxes(grid_boxes, top_list, bot_list, left_list, right_list, total_boxes);
-    printf("good till here parsed file in %d process \n", p_rank);
+    //printBoxes(grid_boxes, top_list, bot_list, left_list, right_list, total_boxes);
+    //printf("good till here parsed file in %d process \n", p_rank);
    
     //sending data to other process 
     printf("broadcast total_boxes to all other processes \n");
@@ -409,86 +438,107 @@ int main(int argc, char *argv[]){
     
     //sending neighbors
     MPI_Send(&grid_boxes[0], total_boxes, grid_box_type, 1, 14, MPI_COMM_WORLD);
+    MPI_Send(&grid_boxes[0], total_boxes, grid_box_type, 2, 14, MPI_COMM_WORLD);
+    MPI_Send(&grid_boxes[0], total_boxes, grid_box_type, 3, 14, MPI_COMM_WORLD);
+    MPI_Send(&grid_boxes[0], total_boxes, grid_box_type, 4, 14, MPI_COMM_WORLD);
     int sind = 0;
     
-    for(int i=0; i<total_boxes; i++){
-        MPI_Send(&top_list[i][0], grid_boxes[i].top_n, MPI_INT, 1, 15, MPI_COMM_WORLD);
+    for(int p=1; p<=4; p++){
+        for(int i=0; i<total_boxes; i++){
+            MPI_Send(&top_list[i][0], grid_boxes[i].top_n, MPI_INT, p, 15, MPI_COMM_WORLD);
+            
+        }
         
-    }
+        for(int i=0; i<total_boxes; i++){
+           
+            MPI_Send(&bot_list[i][0], grid_boxes[i].bot_n, MPI_INT,  p, 16, MPI_COMM_WORLD);
+        }
+        
+        for(int i=0; i<total_boxes; i++){
+           
+            MPI_Send(&left_list[i][0], grid_boxes[i].left_n, MPI_INT,  p, 17, MPI_COMM_WORLD);
+        }
+        
+        for(int i=0; i<total_boxes; i++){
     
-    for(int i=0; i<total_boxes; i++){
-       
-        MPI_Send(&bot_list[i][0], grid_boxes[i].bot_n, MPI_INT,  1, 16, MPI_COMM_WORLD);
-    }
-    
-    for(int i=0; i<total_boxes; i++){
-       
-        MPI_Send(&left_list[i][0], grid_boxes[i].left_n, MPI_INT,  1, 17, MPI_COMM_WORLD);
-    }
-    
-    for(int i=0; i<total_boxes; i++){
-
-        MPI_Send(&right_list[i][0], grid_boxes[i].right_n, MPI_INT,  1, 18, MPI_COMM_WORLD);
+            MPI_Send(&right_list[i][0], grid_boxes[i].right_n, MPI_INT,  p, 18, MPI_COMM_WORLD);
+        }
     }
 
     
     printf("sent all neighbors\n");
     
-      //Starting convergence
-    int total_iterations = 0;
-    double *up_dsv = (double*) malloc (total_boxes * sizeof(double));
-//   while(1){
+//     int total_iterations = 0;
+//      MPI_Status status;
+//     double *up_dsv_l =  malloc(total_boxes * sizeof(double));
+//     double *up_dsv =  malloc(total_boxes * sizeof(double));
+//   // int num_divs = total_boxes/NUM_WORKERS;
+//     int x = 0;
 //       total_iterations++;
 
-//       MPI_Recv(up_dsv[0], num_divs, MPI_DOUBLE, 1, 19, MPI_COMM_WORLD, &status);
-//       MPI_Recv(up_dsv[num_dsv], num_divs, MPI_DOUBLE, 2, 19, MPI_COMM_WORLD, &status);
-//       MPI_Recv(up_dsv[2*num_dsv], num_divs, MPI_DOUBLE, 3, 19, MPI_COMM_WORLD, &status);
-//       MPI_Recv(up_dsv[3*num_dsv], total_boxes - 3*num_divs, MPI_DOUBLE, 4, 19, MPI_COMM_WORLD, &status);
-
-//       cur_min_dsv =  up_dsv[0];
-//       cur_max_dsv =  up_dsv[0];
-//       h_dsv_c[0] = up_dsv[0];
+//       MPI_Recv(&up_dsv_l[0], num_divs, MPI_DOUBLE, 1, 19, MPI_COMM_WORLD, &status);
+//       MPI_Recv(&up_dsv_l[num_divs], num_divs, MPI_DOUBLE, 2, 19, MPI_COMM_WORLD, &status);
+//       MPI_Recv(&up_dsv_l[2*num_divs], num_divs, MPI_DOUBLE, 3, 19, MPI_COMM_WORLD, &status);
+//       MPI_Recv(&up_dsv_l[3*num_divs], total_boxes - 3*num_divs, MPI_DOUBLE, 4, 19, MPI_COMM_WORLD, &status);
+        
+//      for(int i=0; i<total_boxes; i++){
+//         printf("updated dsv from all process: %lf\n", up_dsv_l[i]);
+//      }
+//       cur_min_dsv =  up_dsv_l[0];
+//       cur_max_dsv =  up_dsv_l[0];
+//       //h_dsv_c[0] = up_dsv[0];
 
 //       for(int curx=1; curx<total_boxes; curx++){
-//           h_dsv_c[curx] = up_dsv[curx];
-//           cur_max_dsv = max(cur_max_dsv,  up_dsv[curx]);
-//           cur_min_dsv = min(cur_min_dsv,  up_dsv[curx]);
+//           //h_dsv_c[curx] = up_dsv[curx];
+//           cur_max_dsv = max(cur_max_dsv,  up_dsv_l[curx]);
+//           cur_min_dsv = min(cur_min_dsv,  up_dsv_l[curx]);
 //       }
 
 //       int diff = (cur_max_dsv - cur_min_dsv) <= (epsilon*cur_max_dsv) ? 1 : 0;
 //       if(diff==1){
-//         break;
+//         //break;
 //       }
-
-//   }
+      
     
   }
   
   MPI_Barrier(MPI_COMM_WORLD);
-  
+
   if(p_rank > 0){
     //receive data
      MPI_Status status;
      const int src=0;
-     int total_boxes = 0;
+
+     // int total_boxes = 0;
      printf("receiving at process %d\n", p_rank);
      MPI_Bcast(&total_boxes, 1, MPI_INT, 0, MPI_COMM_WORLD);
       //MPI_Recv(&total_boxes, 1, MPI_INT, src, 12, MPI_COMM_WORLD, &status);
      printf("total boxes received at %d, is %d \n", p_rank, total_boxes);
-     int num_divs = total_boxes/NUM_WORKERS;
+    num_divs = total_boxes/NUM_WORKERS;
      printf("num_divs received %d\n", num_divs);
-      
-     Grid_box *gb_recv;
-     int **rbot_list;
-     int **rtop_list;
-     int **rleft_list;
-     int **rright_list;
+      dsv_c = (double*) malloc(total_boxes * sizeof(double));
+
      
      if(p_rank == 1){
          gb_recv = (Grid_box*)malloc(sizeof(Grid_box) * total_boxes);
         MPI_Recv(&gb_recv[0], total_boxes, grid_box_type, src, 14, MPI_COMM_WORLD, &status);
-        
-         rtop_list =  malloc(sizeof(int*)*total_boxes);
+     }
+     
+    if(p_rank == 2){
+         gb_recv = (Grid_box*)malloc(sizeof(Grid_box) * total_boxes);
+        MPI_Recv(&gb_recv[0], total_boxes, grid_box_type, src, 14, MPI_COMM_WORLD, &status);
+     }
+    if(p_rank == 3){
+         gb_recv = (Grid_box*)malloc(sizeof(Grid_box) * total_boxes);
+        MPI_Recv(&gb_recv[0], total_boxes, grid_box_type, src, 14, MPI_COMM_WORLD, &status);
+     }
+    if(p_rank == 4){
+         gb_recv = (Grid_box*)malloc(sizeof(Grid_box) * total_boxes);
+        MPI_Recv(&gb_recv[0], total_boxes, grid_box_type, src, 14, MPI_COMM_WORLD, &status);
+     }
+     MPI_Barrier( slaves );
+    if(p_rank == 1){
+        rtop_list =  malloc(sizeof(int*)*total_boxes);
         rbot_list =  malloc(sizeof(int*)*total_boxes);
         rleft_list =  malloc(sizeof(int*)*total_boxes);
         rright_list =  malloc(sizeof(int*)*total_boxes);
@@ -531,64 +581,363 @@ int main(int argc, char *argv[]){
             
             //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
         }
-        printf("nerighbors done at %d\n", p_rank);
+       // printf("nerighbors done at %d\n", p_rank);
           
      }
      
-     printf("%d done with boxes\n", p_rank);
+    if(p_rank == 2){
+        rtop_list =  malloc(sizeof(int*)*total_boxes);
+        rbot_list =  malloc(sizeof(int*)*total_boxes);
+        rleft_list =  malloc(sizeof(int*)*total_boxes);
+        rright_list =  malloc(sizeof(int*)*total_boxes);
+
+         for(int i=0; i<total_boxes; i++){
+
+                 rtop_list[i] = malloc(sizeof(int) * gb_recv[i].top_n);
+                MPI_Recv(&rtop_list[i][0], gb_recv[i].top_n, MPI_INT, src, 15, MPI_COMM_WORLD, &status);
      
-     //MPI_Barrier( slaves );
+            
+            //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
+        }
+
+        
+        for(int i=0; i<total_boxes; i++){
+
+                 rbot_list[i] = malloc(sizeof(int) * gb_recv[i].bot_n);
+                MPI_Recv(&rbot_list[i][0], gb_recv[i].bot_n, MPI_INT,  src, 16, MPI_COMM_WORLD, &status);
+            
+            //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
+        }
+        
+        for(int i=0; i<total_boxes; i++){
+
+
+            
+
+                rleft_list[i] = malloc(sizeof(int) * gb_recv[i].left_n);
+                MPI_Recv(&rleft_list[i][0], gb_recv[i].left_n, MPI_INT, src, 17, MPI_COMM_WORLD, &status);
+            
+            //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
+        }
+         for(int i=0; i<total_boxes; i++){
+
+
+            
+
+                rright_list[i] = malloc(sizeof(int) * gb_recv[i].right_n);
+                MPI_Recv(&rright_list[i][0], gb_recv[i].right_n, MPI_INT, src, 18, MPI_COMM_WORLD, &status);
+            
+            //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
+        }
+        //printf("nerighbors done at %d\n", p_rank);
+          
+     }
      
+    if(p_rank == 3){
+        rtop_list =  malloc(sizeof(int*)*total_boxes);
+        rbot_list =  malloc(sizeof(int*)*total_boxes);
+        rleft_list =  malloc(sizeof(int*)*total_boxes);
+        rright_list =  malloc(sizeof(int*)*total_boxes);
+
+         for(int i=0; i<total_boxes; i++){
+
+                 rtop_list[i] = malloc(sizeof(int) * gb_recv[i].top_n);
+                MPI_Recv(&rtop_list[i][0], gb_recv[i].top_n, MPI_INT, src, 15, MPI_COMM_WORLD, &status);
      
-     //if(p_rank == 1){
-         
-       
-     //}
+            
+            //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
+        }
+
+        
+        for(int i=0; i<total_boxes; i++){
+
+                 rbot_list[i] = malloc(sizeof(int) * gb_recv[i].bot_n);
+                MPI_Recv(&rbot_list[i][0], gb_recv[i].bot_n, MPI_INT,  src, 16, MPI_COMM_WORLD, &status);
+            
+            //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
+        }
+        
+        for(int i=0; i<total_boxes; i++){
+
+
+            
+
+                rleft_list[i] = malloc(sizeof(int) * gb_recv[i].left_n);
+                MPI_Recv(&rleft_list[i][0], gb_recv[i].left_n, MPI_INT, src, 17, MPI_COMM_WORLD, &status);
+            
+            //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
+        }
+         for(int i=0; i<total_boxes; i++){
+
+
+            
+
+                rright_list[i] = malloc(sizeof(int) * gb_recv[i].right_n);
+                MPI_Recv(&rright_list[i][0], gb_recv[i].right_n, MPI_INT, src, 18, MPI_COMM_WORLD, &status);
+            
+            //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
+        }
+        //printf("nerighbors done at %d\n", p_rank);
+          
+     }
+     
+    if(p_rank == 4){
+        rtop_list =  malloc(sizeof(int*)*total_boxes);
+        rbot_list =  malloc(sizeof(int*)*total_boxes);
+        rleft_list =  malloc(sizeof(int*)*total_boxes);
+        rright_list =  malloc(sizeof(int*)*total_boxes);
+
+         for(int i=0; i<total_boxes; i++){
+
+                 rtop_list[i] = malloc(sizeof(int) * gb_recv[i].top_n);
+                MPI_Recv(&rtop_list[i][0], gb_recv[i].top_n, MPI_INT, src, 15, MPI_COMM_WORLD, &status);
+     
+            
+            //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
+        }
+
+        
+        for(int i=0; i<total_boxes; i++){
+
+                 rbot_list[i] = malloc(sizeof(int) * gb_recv[i].bot_n);
+                MPI_Recv(&rbot_list[i][0], gb_recv[i].bot_n, MPI_INT,  src, 16, MPI_COMM_WORLD, &status);
+            
+            //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
+        }
+        
+        for(int i=0; i<total_boxes; i++){
+
+
+            
+
+                rleft_list[i] = malloc(sizeof(int) * gb_recv[i].left_n);
+                MPI_Recv(&rleft_list[i][0], gb_recv[i].left_n, MPI_INT, src, 17, MPI_COMM_WORLD, &status);
+            
+            //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
+        }
+         for(int i=0; i<total_boxes; i++){
+
+
+            
+
+                rright_list[i] = malloc(sizeof(int) * gb_recv[i].right_n);
+                MPI_Recv(&rright_list[i][0], gb_recv[i].right_n, MPI_INT, src, 18, MPI_COMM_WORLD, &status);
+            
+            //printf("done at ngh %d , %d \n", i, i - (p_rank-1)*num_divs);
+        }
+        //printf("nerighbors done at %d\n", p_rank);
+          
+     }
+     
+     //printf("%d done with boxes\n", p_rank);
      
      
      MPI_Barrier( slaves );
-     printBoxes(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, total_boxes);
-    printf("Rank %d: Received: box_id = %d height = %d\n", p_rank, gb_recv[(p_rank-1)*num_divs].box_id, gb_recv[(p_rank-1)*num_divs].height);
-    dsv_c = (double*) malloc(total_boxes * sizeof(double));  
-    if(p_rank == 1){
-         printf("***************starting dsv loop for p_rank: %d ******************\n", p_rank);
-        for(int i = 0; i < num_divs; i++){
-          
-          calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
-        }
+     
+     //printBoxes(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, total_boxes);
+    //printf("Rank %d: Received: box_id = %d height = %d\n", p_rank, gb_recv[(p_rank-1)*num_divs].box_id, gb_recv[(p_rank-1)*num_divs].height);
+       double *up_dsv =  malloc(total_boxes * sizeof(double));
+    
+    int x = 0;
+    
+    while(1){
+          x++;
+        printf("in while for process p_rank and x %d, %d\n", p_rank, x);
+            if(p_rank == 1){
+               //  printf("***************starting dsv loop for p_rank: %d ******************\n", p_rank);
+                for(int i = 0; i < total_boxes; i++){
+                  
+                  calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
+                }
+                 for(int  i=0 ;i<total_boxes; i++){
+                    printf("changed dsv[%d] stuff %lf\n", i,dsv_c[i] );
+                    gb_recv[i].temp = dsv_c[i];
+                }
+               
+                  cur_max_dsv = dsv_c[0];
+                        cur_min_dsv = dsv_c[0];
+                        
+                      for(int curx=1; curx<total_boxes; curx++){
+                          //h_dsv_c[curx] = up_dsv[curx];
+                        //  printf("received dsv[%d]: %lf\n", curx, up_dsv_l[curx]);
+                          cur_max_dsv = max(cur_max_dsv,  dsv_c[curx]);
+                          cur_min_dsv = min(cur_min_dsv,  dsv_c[curx]);
+                      }
+                     printf("cur min and max %lf  %lf \n",cur_min_dsv, cur_max_dsv);
+                      int diff = (cur_max_dsv - cur_min_dsv) <= (0.1*cur_max_dsv) ? 1 : 0;
+                      if(diff==1){
+                        break;
+                      }
+                      printf("x is %d\n", x);
+            }
+             MPI_Barrier( slaves );
+            // if(p_rank == 2){
+            //   //  printf("***************starting dsv loop for p_rank: %d ******************\n", p_rank);
+            //     for(int i = num_divs; i < 2*num_divs; i++){
+            //       calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
+            //     }
+            //      // memcpy( &up_dsv[num_divs], &dsv_c[num_divs], num_divs * sizeof( double ) );
+            // }
+            //  MPI_Barrier( slaves );
+            // if(p_rank == 3){
+            //   //   printf("***************starting dsv loop for p_rank: %d ******************\n", p_rank);
+            //     for(int i = 2*num_divs; i < 3*num_divs; i++){
+            //       calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
+            //     }
+            //      // memcpy( &up_dsv[2*num_divs], &dsv_c[2*num_divs], num_divs * sizeof( double ) );
+            // }
+            //  MPI_Barrier( slaves );
+            // if(p_rank == 4){
+            //  //    printf("***************starting dsv loop for p_rank: %d ******************\n", p_rank);
+            //     for(int i = 3*num_divs; i < total_boxes; i++){
+            //       calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
+            //     }
+            //       //memcpy( &up_dsv[3*num_divs], &dsv_c[3*num_divs], (total_boxes - 3*num_divs ) * sizeof( double ) );
+            // }
+            
+            
+            // MPI_Barrier( slaves );
+            //memcpy( &dsv_c[0], &up_dsv[0] , total_boxes * sizeof( double ) );
+           
+            // MPI_Barrier( slaves );
     }
     
-    if(p_rank == 2){
-         printf("***************starting dsv loop for p_rank: %d ******************\n", p_rank);
-        for(int i = num_divs; i < 2*num_divs; i++){
-          calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
-        }
-    }
-    
-    if(p_rank == 3){
-         printf("***************starting dsv loop for p_rank: %d ******************\n", p_rank);
-        for(int i = 2*num_divs; i < 3*num_divs; i++){
-          calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
-        }
-    }
-    
-    if(p_rank == 4){
-         printf("***************starting dsv loop for p_rank: %d ******************\n", p_rank);
-        for(int i = 3*num_divs; i < total_boxes; i++){
-          calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
-        }
-    }
-    
-    
-    MPI_Barrier( slaves );
-    
-    
-    
-    for(int i=0; i<total_boxes; i++){
-        printf("updated dsv: %lf\n", dsv_c[i]);
-    }
+    printf("done convergence\n");
     
   }
+  
+   
+//           //Starting convergence
+
+//         int total_iterations = 0;
+//      MPI_Status status;
+//   double *up_dsv =  malloc(9 * sizeof(double));
+    
+//   // int num_divs = total_boxes/NUM_WORKERS;
+//   //  printf("out here in open %d %d\n", num_divs, total_boxes);
+//     int x = 0;
+    
+    
+//     while(x < 39){
+//          x++;
+          
+//          num_divs = 2;
+//          total_boxes = 9;
+//          if(p_rank > 0){
+//              if(p_rank == 1){
+                 
+//               //   printf("********run*******starting dsv loop for p_rank: %d ******************\n", p_rank);
+//                  //printBoxes(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, total_boxes);
+//                 for(int i = 0; i < num_divs; i++){
+                  
+//                   calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i, dsv_c);
+//                 }
+//              //   memcpy( &up_dsv[0], &dsv_c[0], num_divs * sizeof( double ) );
+//               }
+            
+//               if(p_rank == 2){
+//               //  printf("*******run********starting dsv loop for p_rank: %d ******************\n", p_rank);
+//                 for(int i = num_divs; i < 2*num_divs; i++){
+//                   calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i, dsv_c);
+//                 }
+//               //  memcpy( &up_dsv[num_divs], &dsv_c[num_divs], num_divs * sizeof( double ) );
+//               }
+            
+//               if(p_rank == 3){
+//               //  printf("*******run********starting dsv loop for p_rank: %d ******************\n", p_rank);
+//                 for(int i = 2*num_divs; i < 3*num_divs; i++){
+//                   calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i, dsv_c);
+//                 }
+//              //   memcpy( &up_dsv[2*num_divs], &dsv_c[2*num_divs], num_divs * sizeof( double ) );
+//               }
+            
+//               if(p_rank == 4){
+//               //  printf("*******run********starting dsv loop for p_rank: %d ******************\n", p_rank);
+//                 for(int i = 3*num_divs; i < total_boxes; i++){
+//                   calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i, dsv_c);
+//                 }
+//               // memcpy( &up_dsv[3*num_divs], &dsv_c[3*num_divs], (total_boxes - 3*num_divs) * sizeof( double ) );
+//               }
+//               MPI_Barrier(slaves);
+//              //memcpy( &dsv_c[0], &up_dsv[0] , total_boxes * sizeof( double ) );
+//             for(int  i=0 ;i<total_boxes; i++){
+//                 gb_recv[i].temp = dsv_c[i];
+//             }
+//              MPI_Barrier(slaves);
+//         //  MPI_Barrier(MPI_COMM_WORLD);
+            
+//             if(p_rank == 1){
+//               //  memcpy( &dsv_c[0], &up_dsv[0], total_boxes * sizeof( double ) );
+               
+//               // printf("********send*******starting dsv loop for p_rank: %d ******************\n", p_rank);
+//                 // for(int  i=0 ;i<num_divs; i++){
+//                 //     gb_recv[i].temp = dsv_c[i];
+//                 // }
+//                 MPI_Send(&dsv_c[0], num_divs, MPI_DOUBLE,  0, 20, MPI_COMM_WORLD);
+//             }
+            
+//             if(p_rank == 2){
+//                 // memcpy( &dsv_c[0], &up_dsv[0], total_boxes * sizeof( double ) );
+                
+//                 // printf("*********send******starting dsv loop for p_rank: %d ******************\n", p_rank);
+//                 //  for(int  i=num_divs ;i<2*num_divs; i++){
+//                 //     gb_recv[i].temp = dsv_c[i];
+//                 // }
+//                 MPI_Send(&dsv_c[num_divs], num_divs, MPI_DOUBLE,  0, 20, MPI_COMM_WORLD);
+//             }
+            
+//             if(p_rank == 3){
+//               //  memcpy( &dsv_c[0], &up_dsv[0], total_boxes * sizeof( double ) );
+               
+//               //  printf("*********send******starting dsv loop for p_rank: %d ******************\n", p_rank);
+//                 //   for(int  i=2*num_divs ;i<3*num_divs; i++){
+//                 //     gb_recv[i].temp = dsv_c[i];
+//                 // }
+//               MPI_Send(&dsv_c[2*num_divs], num_divs, MPI_DOUBLE,  0, 20, MPI_COMM_WORLD);
+//             }
+            
+//             if(p_rank == 4){
+                 
+               
+//                  //printf("*********send******starting dsv loop for p_rank: %d ******************\n", p_rank);
+//                 //   for(int  i=3*num_divs ;i<total_boxes; i++){
+//                 //     gb_recv[i].temp = dsv_c[i];
+//                 // }
+//               MPI_Send(&dsv_c[3*num_divs], (total_boxes - 3*num_divs), MPI_DOUBLE,  0, 20, MPI_COMM_WORLD);
+//             }
+            
+//          }
+//           // MPI_Barrier(MPI_COMM_WORLD);
+            
+//             if(p_rank == 0){
+//                   double *up_dsv_l =  malloc(9 * sizeof(double));
+//                   MPI_Recv(&up_dsv_l[0], 2, MPI_DOUBLE, 1, 20, MPI_COMM_WORLD, &status);
+//                   MPI_Recv(&up_dsv_l[2], 2, MPI_DOUBLE, 2, 20, MPI_COMM_WORLD, &status);
+//                   MPI_Recv(&up_dsv_l[2*2], 2, MPI_DOUBLE, 3, 20, MPI_COMM_WORLD, &status);
+//                   MPI_Recv(&up_dsv_l[3*2], (9 - 3*2), MPI_DOUBLE, 4, 20, MPI_COMM_WORLD, &status);
+                        
+//                         cur_max_dsv = up_dsv_l[0];
+//                         cur_min_dsv = up_dsv_l[0];
+                        
+//                       for(int curx=1; curx<total_boxes; curx++){
+//                           //h_dsv_c[curx] = up_dsv[curx];
+//                           printf("received dsv[%d]: %lf\n", curx, up_dsv_l[curx]);
+//                           cur_max_dsv = max(cur_max_dsv,  up_dsv_l[curx]);
+//                           cur_min_dsv = min(cur_min_dsv,  up_dsv_l[curx]);
+//                       }
+//                      printf("cur min and max %lf  %lf \n",cur_min_dsv, cur_max_dsv);
+//                       int diff = (cur_max_dsv - cur_min_dsv) <= (0.1*cur_max_dsv) ? 1 : 0;
+//                       if(diff==1){
+//                         //break;
+//                       }
+//                       printf("x is %d\n", x);
+//             }
+           
+           
+//              MPI_Barrier(MPI_COMM_WORLD);
+//       }
+  
+  
  
   
   MPI_Finalize();
