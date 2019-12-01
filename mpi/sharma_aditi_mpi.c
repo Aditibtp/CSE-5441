@@ -37,8 +37,17 @@ int p_rank;
      int **rright_list;
      int num_divs, total_boxes;
      double *dsv_c;
-  //printf("total boxes again %d\n", t);
-  //printing all the grid boxes
+        
+    struct timespec start, end;
+    struct timeval t_start, t_end, t_diff;
+  
+
+    clock_t start_clock, end_clock;
+
+
+    time_t time_t_start;
+    int total_iterations = 0;
+
 
 void printBoxes(Grid_box *grid_boxes, int **top_list, int **bot_list, int **left_list, int **right_list, int total_boxes){
    // printf("p_rank in printbox %d \n", p_rank);
@@ -174,7 +183,7 @@ void calculateDsvForBox(Grid_box *grid_boxes, int **top_list, int **bot_list, in
  //printf("box peri[i] : %d %d \n",cur, box_peri );
   if(box_peri > 0){
     double avg_dsv = dsv_c[cur]/(double)box_peri;
-    offset = ((cur_temp - avg_dsv)*0.1);
+    offset = ((cur_temp - avg_dsv)*affect_rate);
   }
   dsv_c[cur] = cur_temp - offset;
 }
@@ -405,7 +414,9 @@ int main(int argc, char *argv[]){
     }
     
 
-    printf("broadcast total_boxes to all other processes \n");
+  time_t_start = time(NULL); 
+    MPI_Send(&epsilon, 1, MPI_DOUBLE, 1,10, MPI_COMM_WORLD);
+    MPI_Send(&affect_rate, 1, MPI_DOUBLE, 1,11, MPI_COMM_WORLD);
     MPI_Send(&total_boxes, 1, MPI_INT, 1,12, MPI_COMM_WORLD);
 
     
@@ -423,6 +434,8 @@ int main(int argc, char *argv[]){
   if(p_rank == 1){
      
       int rt = 0;
+       MPI_Recv(&epsilon, 1, MPI_DOUBLE, 0, 10, MPI_COMM_WORLD, &status);
+        MPI_Recv(&affect_rate, 1, MPI_DOUBLE, 0, 11, MPI_COMM_WORLD, &status);
        MPI_Recv(&total_boxes, 1, MPI_INT, 0, 12, MPI_COMM_WORLD, &status);
         gb_recv = (Grid_box*)malloc(sizeof(Grid_box) * total_boxes);
        printf("total boxes  in 1, %d\n", rt);
@@ -558,7 +571,7 @@ int main(int argc, char *argv[]){
     // MPI_Barrier( slaves );
     if(p_rank == 1){
 
-    printf("Rank %d: Received: box_id = %d height = %d\n", p_rank, gb_recv[(p_rank-1)*num_divs].box_id, gb_recv[(p_rank-1)*num_divs].height);
+   // printf("Rank %d: Received: box_id = %d height = %d\n", p_rank, gb_recv[(p_rank-1)*num_divs].box_id, gb_recv[(p_rank-1)*num_divs].height);
        double *up_dsv =  malloc(total_boxes * sizeof(double));
     
     int x = 0;
@@ -581,7 +594,7 @@ int main(int argc, char *argv[]){
             }
             init_index = init_index + num_divs;
           }
-          int total_iterations = 0;
+          
        #pragma omp parallel num_threads(num_threads_req)
        {
            int thread_id = omp_get_thread_num();
@@ -618,10 +631,35 @@ int main(int argc, char *argv[]){
               
        }
    
-          printf("total_iterations is %d\n", total_iterations);
+          //printf("total_iterations is %d\n", total_iterations);
+           MPI_Send(&total_iterations, 1, MPI_INT, 1,21, MPI_COMM_WORLD);
    }
     
   }
+  }
+  if(p_rank == 0){
+       MPI_Recv(&total_iterations, 1, MPI_INT, 1, 21, MPI_COMM_WORLD, &status);
+       printf("total_iterations is %d\n", total_iterations);
+       
+       time_t time_t_end;
+  time_t_end = time(NULL); 
+
+  double elapsed=0;
+  clock_gettime(CLOCK_REALTIME,&end);
+  end_clock = (double)((clock() - start_clock));
+  
+  double timediff = (double)((end.tv_sec - start.tv_sec)*CLOCKS_PER_SEC + ((end.tv_nsec -start.tv_nsec)/1000000));
+  
+  
+  printf("\n********************************************************************************\n");
+  printf("dissipation converged in %d iterations,\n", total_iterations);
+  printf("\twith max DSV = %lf and min DSV = %lf\n", cur_max_dsv, cur_min_dsv);
+
+  printf("\taffect rate = %lf; epsilon = %lf\n\n", affect_rate, epsilon);
+  printf("elapsed convergence loop time (clock_gettime()): %lf\n", timediff);
+  printf("elapsed convergence loop time (clock): %ld\n", end_clock);
+  printf("elapsed convergence loop time (time_t): %ld\n", (time_t_end - time_t_start));
+  printf("\n********************************************************************************\n");
   }
   
   
