@@ -557,14 +557,84 @@ int main(int argc, char *argv[]){
 
     if(p_rank == 1){
 
-       double *up_dsv =  malloc(total_boxes * sizeof(double));
+       //double *up_dsv =  malloc(total_boxes * sizeof(double));
     
     int x = 0;
     
-   if(p_rank == 1){
-         int threads_created = 0;
-         int num_threads_req = 28;
-         int num_divs = total_boxes/num_threads_req;
+//   if(p_rank == 1){
+//          int threads_created = 0;
+//          int num_threads_req = 28;
+//          int num_divs = total_boxes/num_threads_req;
+//           thread_range t_message[num_threads_req];
+//           int init_index = 0;
+        
+//           //divide the grids among threads
+//           for (int i = 0; i < num_threads_req; i++) {
+//             t_message[i].thread_id = i;
+//             t_message[i].start = init_index;
+//             if (i == (num_threads_req - 1)) {
+//               t_message[i].end = total_boxes;
+//             } else {
+//               t_message[i].end = (init_index + num_divs - 1);
+//             }
+//             init_index = init_index + num_divs;
+//           }
+          
+//       #pragma omp parallel num_threads(num_threads_req)
+//       {
+//           int thread_id = omp_get_thread_num();
+//           if (thread_id == 0) {
+//               threads_created = omp_get_num_threads();
+//             }
+            
+//             //printf("Threads created\n");
+//             while(1){
+//                 for(int i = t_message[thread_id].start; i <= min(t_message[thread_id].end, total_boxes-1); i++){
+//                     calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
+//                  }
+        
+//                 #pragma omp barrier
+//                   if (thread_id == 0) {
+//                     cur_min_dsv =  dsv_c[0];
+//                     cur_max_dsv =  dsv_c[0];
+//                     gb_recv[0].temp = dsv_c[0];
+            
+//                     for(int curx=1; curx<total_boxes; curx++){
+//                         gb_recv[curx].temp = dsv_c[curx];
+//                         cur_max_dsv = max(cur_max_dsv,  dsv_c[curx]);
+//                         cur_min_dsv = min(cur_min_dsv,  dsv_c[curx]);
+//                     }
+//                     total_iterations++;
+//                   }
+                
+//                   #pragma omp barrier
+                 
+//                   int diff = (cur_max_dsv - cur_min_dsv) <= (epsilon*cur_max_dsv) ? 1 : 0;
+//                   if(diff==1) break;
+//             }
+              
+              
+//       }
+//           printf("total_iterations is %d\n", total_iterations);
+//           // MPI_Send(&total_iterations, 1, MPI_INT, 1,21, MPI_COMM_WORLD);
+//   }
+    
+  }
+  }
+  
+  double *up_dsv = malloc(sizeof(double) * total_boxes);
+  int tt=0;
+  int diff = 0;
+  
+  int run = 1;
+  
+  while(1){
+      tt++;
+     if(p_rank == 1){
+        // printf("calculating dsv\n");
+          int num_threads_req = 28;
+          int threads_created = 0;
+          int num_divs = total_boxes/num_threads_req;
           thread_range t_message[num_threads_req];
           int init_index = 0;
         
@@ -579,51 +649,117 @@ int main(int argc, char *argv[]){
             }
             init_index = init_index + num_divs;
           }
-          
-       #pragma omp parallel num_threads(num_threads_req)
-       {
-           int thread_id = omp_get_thread_num();
-           if (thread_id == 0) {
-              threads_created = omp_get_num_threads();
-            }
-            
-            //printf("Threads created\n");
-            while(1){
+
+          #pragma omp parallel num_threads(num_threads_req)
+          {
+              int thread_id = omp_get_thread_num();
+              if (thread_id == 0) {
+                  threads_created = omp_get_num_threads();
+                }
+                
                 for(int i = t_message[thread_id].start; i <= min(t_message[thread_id].end, total_boxes-1); i++){
                     calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i);
-                 }
-        
+                }
+
                 #pragma omp barrier
-                  if (thread_id == 0) {
-                    cur_min_dsv =  dsv_c[0];
-                    cur_max_dsv =  dsv_c[0];
-                    gb_recv[0].temp = dsv_c[0];
-            
-                    for(int curx=1; curx<total_boxes; curx++){
-                        gb_recv[curx].temp = dsv_c[curx];
-                        cur_max_dsv = max(cur_max_dsv,  dsv_c[curx]);
-                        cur_min_dsv = min(cur_min_dsv,  dsv_c[curx]);
-                    }
-                    total_iterations++;
-                  }
-                
-                  #pragma omp barrier
-                 
-                  int diff = (cur_max_dsv - cur_min_dsv) <= (epsilon*cur_max_dsv) ? 1 : 0;
-                  if(diff==1) break;
+           }
+
+         MPI_Send(dsv_c, 12206, MPI_DOUBLE, 0,22, MPI_COMM_WORLD);
+     }
+     
+     if(p_rank == 0){
+         MPI_Recv(up_dsv, 12206, MPI_DOUBLE, 1, 22, MPI_COMM_WORLD, &status);
+          cur_min_dsv =  up_dsv[0];
+          cur_max_dsv =  up_dsv[0];
+          grid_boxes[0].temp = up_dsv[0];
+         for(int curx=1; curx<12206; curx++){
+                grid_boxes[curx].temp = up_dsv[curx];
+                cur_max_dsv = max(cur_max_dsv,  up_dsv[curx]);
+                cur_min_dsv = min(cur_min_dsv,  up_dsv[curx]);
             }
+           // tt++;
+          
+         
+          diff = (cur_max_dsv - cur_min_dsv) <= (epsilon*cur_max_dsv) ? 1 : 0;
+          if(diff==1){
+              run =0;
               
-              
-       }
-          printf("total_iterations is %d\n", total_iterations);
-          // MPI_Send(&total_iterations, 1, MPI_INT, 1,21, MPI_COMM_WORLD);
-   }
-    
-  }
-  }
+          }
+     }
+     
+     if(p_rank == 0){
+         MPI_Send(up_dsv, 12206, MPI_DOUBLE, 1,23, MPI_COMM_WORLD);
+         MPI_Send(&run, 1, MPI_INT, 1,24, MPI_COMM_WORLD);
+         MPI_Send(&run, 1, MPI_INT, 2,24, MPI_COMM_WORLD);
+         MPI_Send(&run, 1, MPI_INT, 3,24, MPI_COMM_WORLD);
+         MPI_Send(&run, 1, MPI_INT, 4,24, MPI_COMM_WORLD);
+     }
+     
+     if(p_rank == 1){
+         MPI_Recv(dsv_c, 12206, MPI_DOUBLE, 0, 23, MPI_COMM_WORLD, &status);
+          MPI_Recv(&run, 1, MPI_INT, 0, 24, MPI_COMM_WORLD, &status);
+          
+          if(run == 0){
+              printf("p 1 breaking\n");
+              break;
+          }
+         for(int i=0; i<total_boxes; i++){
+             gb_recv[i].temp = dsv_c[i];
+             dsv_c[i] = 0;
+         }
+     }
+     
+     if(p_rank == 2){
+       
+          MPI_Recv(&run, 1, MPI_INT, 0, 24, MPI_COMM_WORLD, &status);
+          
+          if(run == 0){
+              printf("p 2 breaking\n");
+              break;
+          }
+       
+     }
+     
+     if(p_rank == 3){
+       
+          MPI_Recv(&run, 1, MPI_INT, 0, 24, MPI_COMM_WORLD, &status);
+          
+          if(run == 0){
+              printf("p 2 breaking\n");
+              break;
+          }
+       
+     }
+     
+     if(p_rank == 4){
+       
+          MPI_Recv(&run, 1, MPI_INT, 0, 24, MPI_COMM_WORLD, &status);
+          
+          if(run == 0){
+              printf("p 2 breaking\n");
+              break;
+          }
+       
+     }
+     
+   
+     if(run == 0){
+         if(p_rank == 0){
+             printf("cur max: %lf  cur min: %lf \n", cur_max_dsv, cur_min_dsv );
+         }
+         printf("process %d\n", p_rank);
+         break;
+     }
+     
+   // MPI_Barrier(MPI_COMM_WORLD);
+ }
+     
+  
+  
+  
   if(p_rank == 0){
        //MPI_Recv(&total_iterations, 1, MPI_INT, 1, 21, MPI_COMM_WORLD, &status);
-       printf("total_iterations is %d\n", total_iterations);
+       printf("total_iterations is %d\n", tt);
        
        time_t time_t_end;
   time_t_end = time(NULL); 
