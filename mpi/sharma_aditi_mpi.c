@@ -222,12 +222,7 @@ int main(int argc, char *argv[]){
   MPI_Type_create_struct(10, blocklengths, array_of_displacements, types, &grid_box_type);
   MPI_Type_commit(&grid_box_type);
   
-
-  
-  
   Grid_box *gb_chunks; 
-
-
   
   if(p_rank == 0) {
     
@@ -244,15 +239,15 @@ int main(int argc, char *argv[]){
       
     struct timespec start, end;
     double timediff;
-    printf("runs 0 multiple times\n");
+    //printf("runs 0 multiple times\n");
 
-    if(argc != 3){
-      printf("Please provide correct number of arguments in the following order: <Number of threads> <AFFECT_RATE> <Number of threads> <EPSILON> <INPUT_FILE>\n");
-      exit(0);
-    }
+    // if(argc != 3){
+    //   printf("Please provide correct number of arguments in the following order: <Number of threads> <AFFECT_RATE> <Number of threads> <EPSILON> <INPUT_FILE>\n");
+    //   exit(0);
+    // }
     
-    sscanf(argv[1], "%lf", &affect_rate);
-    sscanf(argv[2], "%lf", &epsilon);
+    // sscanf(argv[1], "%lf", &affect_rate);
+    // sscanf(argv[2], "%lf", &epsilon);
       //reading first line containng number of boxes, rows and cols
     FILE * fp;
     fp = fopen("testgrid_400_12206", "r");
@@ -284,8 +279,8 @@ int main(int argc, char *argv[]){
     }
     
     int num_divs = total_boxes/NUM_WORKERS;
-    printf("total boxes seen %d\n", total_boxes);
-    printf("Num divs %d\n", num_divs);
+  //  printf("total boxes seen %d\n", total_boxes);
+    //printf("Num divs %d\n", num_divs);
     int init_index = 0;
     //do all the mallocs
     grid_boxes = malloc(sizeof(Grid_box) * total_boxes);
@@ -414,7 +409,7 @@ int main(int argc, char *argv[]){
     }
     
 
-    time_t_start = time(NULL); 
+   
     MPI_Send(&epsilon, 1, MPI_DOUBLE, 1,10, MPI_COMM_WORLD);
     MPI_Send(&affect_rate, 1, MPI_DOUBLE, 1,11, MPI_COMM_WORLD);
     MPI_Send(&total_boxes, 1, MPI_INT, 1,12, MPI_COMM_WORLD);
@@ -426,7 +421,7 @@ int main(int argc, char *argv[]){
 
    MPI_Status status;
  
-  printf("sent all boxes \n");
+  //printf("sent all boxes \n");
   if(p_rank == 0){
         MPI_Send(&grid_boxes[0], total_boxes, grid_box_type, 1, 14, MPI_COMM_WORLD);
   }
@@ -437,7 +432,7 @@ int main(int argc, char *argv[]){
         MPI_Recv(&affect_rate, 1, MPI_DOUBLE, 0, 11, MPI_COMM_WORLD, &status);
        MPI_Recv(&total_boxes, 1, MPI_INT, 0, 12, MPI_COMM_WORLD, &status);
         gb_recv = (Grid_box*)malloc(sizeof(Grid_box) * total_boxes);
-       printf("total boxes  in 1, %d\n", rt);
+     //  printf("total boxes  in 1, %d\n", rt);
       MPI_Recv(&gb_recv[0], total_boxes, grid_box_type, 0, 14, MPI_COMM_WORLD, &status);
       
        
@@ -463,7 +458,7 @@ int main(int argc, char *argv[]){
                 MPI_Recv(&rtop_list[i][0], gb_recv[i].top_n, MPI_INT, 0, 15, MPI_COMM_WORLD, &status);
      
         }
-        printf("Awesome got all top neighbores \n");
+      //  printf("Awesome got all top neighbores \n");
    }
    
      if(p_rank == 0){
@@ -486,7 +481,7 @@ int main(int argc, char *argv[]){
                 MPI_Recv(&rbot_list[i][0], gb_recv[i].bot_n, MPI_INT, 0, 16, MPI_COMM_WORLD, &status);
      
         }
-        printf("Awesome got all bottom neighbores \n");
+      //  printf("Awesome got all bottom neighbores \n");
    }
    
     if(p_rank == 0){
@@ -511,7 +506,7 @@ int main(int argc, char *argv[]){
               MPI_Recv(&rright_list[i][0], gb_recv[i].right_n, MPI_INT, 0, 17, MPI_COMM_WORLD, &status);
    
       }
-      printf("Awesome got all right neighbores \n");
+   //   printf("Awesome got all right neighbores \n");
    }
    
        if(p_rank == 0){
@@ -536,7 +531,7 @@ int main(int argc, char *argv[]){
               MPI_Recv(&rleft_list[i][0], gb_recv[i].left_n, MPI_INT, 0, 18, MPI_COMM_WORLD, &status);
    
       }
-      printf("Awesome got all left neighbores \n");
+    //  printf("Awesome got all left neighbores \n");
    }
    
    MPI_Barrier(MPI_COMM_WORLD);
@@ -554,7 +549,7 @@ int main(int argc, char *argv[]){
         MPI_Recv(&affect_rate, 1, MPI_DOUBLE, 0, 11, MPI_COMM_WORLD, &status);
        MPI_Recv(&total_boxes, 1, MPI_INT, 0, 12, MPI_COMM_WORLD, &status);
         gb_recv = (Grid_box*)malloc(sizeof(Grid_box) * total_boxes);
-       printf("total boxes  in 1, %d\n", total_boxes);
+     //  printf("total boxes  in 1, %d\n", total_boxes);
       MPI_Recv(&gb_recv[0], total_boxes, grid_box_type, 0, 14, MPI_COMM_WORLD, &status);
       
        
@@ -580,7 +575,7 @@ int main(int argc, char *argv[]){
             MPI_Recv(&rtop_list[i][0], gb_recv[i].top_n, MPI_INT, 0, 15, MPI_COMM_WORLD, &status);
      
         }
-        printf("Awesome got all top neighbores \n");
+       // printf("Awesome got all top neighbores \n");
    }
    
      if(p_rank == 0){
@@ -603,7 +598,7 @@ int main(int argc, char *argv[]){
                 MPI_Recv(&rbot_list[i][0], gb_recv[i].bot_n, MPI_INT, 0, 16, MPI_COMM_WORLD, &status);
      
         }
-        printf("Awesome got all bottom neighbores \n");
+      //  printf("Awesome got all bottom neighbores \n");
    }
    
     if(p_rank == 0){
@@ -628,7 +623,7 @@ int main(int argc, char *argv[]){
               MPI_Recv(&rright_list[i][0], gb_recv[i].right_n, MPI_INT, 0, 17, MPI_COMM_WORLD, &status);
    
       }
-      printf("Awesome got all right neighbores \n");
+     // printf("Awesome got all right neighbores \n");
    }
    
     if(p_rank == 0){
@@ -653,7 +648,7 @@ int main(int argc, char *argv[]){
               MPI_Recv(&rleft_list[i][0], gb_recv[i].left_n, MPI_INT, 0, 18, MPI_COMM_WORLD, &status);
    
       }
-      printf("Awesome got all left neighbores \n");
+     // printf("Awesome got all left neighbores \n");
    }
    
 
@@ -673,7 +668,7 @@ int main(int argc, char *argv[]){
         MPI_Recv(&affect_rate, 1, MPI_DOUBLE, 0, 11, MPI_COMM_WORLD, &status);
        MPI_Recv(&total_boxes, 1, MPI_INT, 0, 12, MPI_COMM_WORLD, &status);
         gb_recv = (Grid_box*)malloc(sizeof(Grid_box) * total_boxes);
-       printf("total boxes  in 1, %d\n", total_boxes);
+      // printf("total boxes  in 1, %d\n", total_boxes);
       MPI_Recv(&gb_recv[0], total_boxes, grid_box_type, 0, 14, MPI_COMM_WORLD, &status);
       
        
@@ -699,7 +694,7 @@ int main(int argc, char *argv[]){
             MPI_Recv(&rtop_list[i][0], gb_recv[i].top_n, MPI_INT, 0, 15, MPI_COMM_WORLD, &status);
      
         }
-        printf("Awesome got all top neighbores \n");
+      //  printf("Awesome got all top neighbores \n");
    }
    
      if(p_rank == 0){
@@ -722,7 +717,7 @@ int main(int argc, char *argv[]){
                 MPI_Recv(&rbot_list[i][0], gb_recv[i].bot_n, MPI_INT, 0, 16, MPI_COMM_WORLD, &status);
      
         }
-        printf("Awesome got all bottom neighbores \n");
+      //  printf("Awesome got all bottom neighbores \n");
    }
    
     if(p_rank == 0){
@@ -747,7 +742,7 @@ int main(int argc, char *argv[]){
               MPI_Recv(&rright_list[i][0], gb_recv[i].right_n, MPI_INT, 0, 17, MPI_COMM_WORLD, &status);
    
       }
-      printf("Awesome got all right neighbores \n");
+     // printf("Awesome got all right neighbores \n");
    }
    
     if(p_rank == 0){
@@ -772,7 +767,7 @@ int main(int argc, char *argv[]){
               MPI_Recv(&rleft_list[i][0], gb_recv[i].left_n, MPI_INT, 0, 18, MPI_COMM_WORLD, &status);
    
       }
-      printf("Awesome got all left neighbores \n");
+     // printf("Awesome got all left neighbores \n");
    }
    
    
@@ -792,7 +787,7 @@ int main(int argc, char *argv[]){
         MPI_Recv(&affect_rate, 1, MPI_DOUBLE, 0, 11, MPI_COMM_WORLD, &status);
        MPI_Recv(&total_boxes, 1, MPI_INT, 0, 12, MPI_COMM_WORLD, &status);
         gb_recv = (Grid_box*)malloc(sizeof(Grid_box) * total_boxes);
-       printf("total boxes  in 1, %d\n", total_boxes);
+     //  printf("total boxes  in 1, %d\n", total_boxes);
       MPI_Recv(&gb_recv[0], total_boxes, grid_box_type, 0, 14, MPI_COMM_WORLD, &status);
       
        
@@ -818,7 +813,7 @@ int main(int argc, char *argv[]){
             MPI_Recv(&rtop_list[i][0], gb_recv[i].top_n, MPI_INT, 0, 15, MPI_COMM_WORLD, &status);
      
         }
-        printf("Awesome got all top neighbores \n");
+        //printf("Awesome got all top neighbores \n");
    }
    
      if(p_rank == 0){
@@ -841,7 +836,7 @@ int main(int argc, char *argv[]){
                 MPI_Recv(&rbot_list[i][0], gb_recv[i].bot_n, MPI_INT, 0, 16, MPI_COMM_WORLD, &status);
      
         }
-        printf("Awesome got all bottom neighbores \n");
+        //printf("Awesome got all bottom neighbores \n");
    }
    
     if(p_rank == 0){
@@ -866,7 +861,7 @@ int main(int argc, char *argv[]){
               MPI_Recv(&rright_list[i][0], gb_recv[i].right_n, MPI_INT, 0, 17, MPI_COMM_WORLD, &status);
    
       }
-      printf("Awesome got all right neighbores \n");
+     // printf("Awesome got all right neighbores \n");
    }
    
     if(p_rank == 0){
@@ -891,7 +886,7 @@ int main(int argc, char *argv[]){
               MPI_Recv(&rleft_list[i][0], gb_recv[i].left_n, MPI_INT, 0, 18, MPI_COMM_WORLD, &status);
    
       }
-      printf("Awesome got all left neighbores \n");
+     // printf("Awesome got all left neighbores \n");
    }
    
    
@@ -904,7 +899,7 @@ int main(int argc, char *argv[]){
      const int src=0;
 
     num_divs = total_boxes/NUM_WORKERS;
-    printf("num_divs received %d\n", num_divs);
+  //  printf("num_divs received %d\n", num_divs);
     dsv_c = (double*) malloc(total_boxes * sizeof(double));
 
   }
@@ -919,6 +914,14 @@ int main(int argc, char *argv[]){
   double *dsv_c3 = malloc(sizeof(double) * total_boxes);
   double *dsv_c4 = malloc(sizeof(double) * total_boxes);
   
+  if(p_rank == 0){
+       time_t_start = time(NULL); 
+       start_clock = clock();
+       clock_gettime(CLOCK_REALTIME,& start);
+  }
+  
+  
+   MPI_Barrier(MPI_COMM_WORLD);
   while(1){
       tt++;
      if(p_rank == 1){
@@ -926,7 +929,7 @@ int main(int argc, char *argv[]){
          
           int num_threads_req = 28;
           int threads_created = 0;
-          int num_divs = total_boxes/(3*num_threads_req);
+          int num_divs = total_boxes/(2*num_threads_req);
           thread_range t_message[num_threads_req];
           int init_index = 0;
         
@@ -935,7 +938,7 @@ int main(int argc, char *argv[]){
             t_message[i].thread_id = i;
             t_message[i].start = init_index;
             if (i == (num_threads_req - 1)) {
-              t_message[i].end = total_boxes/3 - 1;
+              t_message[i].end = total_boxes/2 - 1;
             } else {
               t_message[i].end = (init_index + num_divs - 1);
             }
@@ -949,18 +952,18 @@ int main(int argc, char *argv[]){
                   threads_created = omp_get_num_threads();
                 }
                 
-                for(int i = t_message[thread_id].start; i <= min(t_message[thread_id].end, (total_boxes/3 - 1)); i++){
+                for(int i = t_message[thread_id].start; i <= min(t_message[thread_id].end, (total_boxes/2 - 1)); i++){
                     calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i, dsv_c1);
                 }
 
                 #pragma omp barrier
            }
 
-         MPI_Send(dsv_c1, 4068, MPI_DOUBLE, 0,22, MPI_COMM_WORLD);
+         MPI_Send(dsv_c1, 12206/2, MPI_DOUBLE, 0,22, MPI_COMM_WORLD);
      }
      
      if(p_rank == 0){
-         MPI_Recv(up_dsv, 4068, MPI_DOUBLE, 1, 22, MPI_COMM_WORLD, &status);
+         MPI_Recv(up_dsv, 12206/2, MPI_DOUBLE, 1, 22, MPI_COMM_WORLD, &status);
      }
       
      // MPI_Barrier(MPI_COMM_WORLD);
@@ -969,51 +972,9 @@ int main(int argc, char *argv[]){
         // printf("calculating dsv\n");
           int num_threads_req = 28;
           int threads_created = 0;
-          int num_divs = total_boxes/(3*num_threads_req);
+          int num_divs = total_boxes/(2*num_threads_req);
           thread_range t_message[num_threads_req];
-          int init_index = 12206/3;
-        
-          //divide the grids among threads
-          for (int i = 0; i < num_threads_req; i++) {
-            t_message[i].thread_id = i;
-            t_message[i].start = init_index;
-            if (i == (num_threads_req - 1)) {
-              t_message[i].end = 2*total_boxes/3;
-            } else {
-              t_message[i].end = (init_index + num_divs - 1);
-            }
-            init_index = init_index + num_divs;
-          }
-
-          #pragma omp parallel num_threads(num_threads_req)
-          {
-              int thread_id = omp_get_thread_num();
-              if (thread_id == 0) {
-                  threads_created = omp_get_num_threads();
-                }
-                
-                for(int i = t_message[thread_id].start; i <= min(t_message[thread_id].end, (2*total_boxes/3-1)); i++){
-                    calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i, dsv_c2);
-                }
-
-                #pragma omp barrier
-           }
-
-         MPI_Send(&dsv_c2[4068], 4068, MPI_DOUBLE, 0,22, MPI_COMM_WORLD);
-     }
-     
-     if(p_rank == 0){
-         MPI_Recv(&up_dsv[4068], 4068, MPI_DOUBLE, 2, 22, MPI_COMM_WORLD, &status);
-     }
-   //  MPI_Barrier(MPI_COMM_WORLD);
-     if(p_rank == 3){
-        // printf("calculating dsv\n");
-         
-          int num_threads_req = 28;
-          int threads_created = 0;
-          int num_divs = total_boxes/(3*num_threads_req);
-          thread_range t_message[num_threads_req];
-          int init_index = 2*total_boxes/3;
+          int init_index = total_boxes/2;
         
           //divide the grids among threads
           for (int i = 0; i < num_threads_req; i++) {
@@ -1034,21 +995,20 @@ int main(int argc, char *argv[]){
                   threads_created = omp_get_num_threads();
                 }
                 
-                for(int i = t_message[thread_id].start; i <= min(t_message[thread_id].end, total_boxes-1); i++){
-                    calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i, dsv_c3);
+                for(int i = t_message[thread_id].start; i <= min(t_message[thread_id].end, (total_boxes-1)); i++){
+                    calculateDsvForBox(gb_recv, rtop_list, rbot_list, rleft_list, rright_list, i, dsv_c2);
                 }
 
                 #pragma omp barrier
            }
 
-         MPI_Send(&dsv_c3[8136], 4070, MPI_DOUBLE, 0,22, MPI_COMM_WORLD);
+         MPI_Send(&dsv_c2[12206/2], 12206/2, MPI_DOUBLE, 0,22, MPI_COMM_WORLD);
      }
      
      if(p_rank == 0){
-         MPI_Recv(&up_dsv[8136], 4070, MPI_DOUBLE, 3, 22, MPI_COMM_WORLD, &status);
+         MPI_Recv(&up_dsv[12206/2], 12206/2, MPI_DOUBLE, 2, 22, MPI_COMM_WORLD, &status);
      }
-     
-     MPI_Barrier(MPI_COMM_WORLD);
+
      if(p_rank == 0){
         // MPI_Recv(up_dsv, 12206, MPI_DOUBLE, 1, 22, MPI_COMM_WORLD, &status);
           cur_min_dsv =  up_dsv[0];
@@ -1061,7 +1021,7 @@ int main(int argc, char *argv[]){
          }
            // tt++;
           
-         printf("cur max: %lf  cur min: %lf \n", cur_max_dsv, cur_min_dsv );
+        // printf("cur max: %lf  cur min: %lf \n", cur_max_dsv, cur_min_dsv );
           diff = (cur_max_dsv - cur_min_dsv) <= (epsilon*cur_max_dsv) ? 1 : 0;
           if(diff==1){
               run =0;
@@ -1070,22 +1030,20 @@ int main(int argc, char *argv[]){
           
            MPI_Send(up_dsv, 12206, MPI_DOUBLE, 1,23, MPI_COMM_WORLD);
           MPI_Send(up_dsv, 12206, MPI_DOUBLE, 2,23, MPI_COMM_WORLD);
-            MPI_Send(up_dsv, 12206, MPI_DOUBLE, 3,23, MPI_COMM_WORLD);
+          //  MPI_Send(up_dsv, 12206, MPI_DOUBLE, 3,23, MPI_COMM_WORLD);
             
          MPI_Send(&run, 1, MPI_INT, 1,24, MPI_COMM_WORLD);
          MPI_Send(&run, 1, MPI_INT, 2,24, MPI_COMM_WORLD);
          MPI_Send(&run, 1, MPI_INT, 3,24, MPI_COMM_WORLD);
          MPI_Send(&run, 1, MPI_INT, 4,24, MPI_COMM_WORLD);
      }
-     
-      MPI_Barrier(MPI_COMM_WORLD);
 
      if(p_rank == 1){
          MPI_Recv(dsv_c1, 12206, MPI_DOUBLE, 0, 23, MPI_COMM_WORLD, &status);
           MPI_Recv(&run, 1, MPI_INT, 0, 24, MPI_COMM_WORLD, &status);
           
           if(run == 0){
-              printf("p 1 breaking\n");
+            //  printf("p 1 breaking\n");
               break;
           }
          for(int i=0; i<total_boxes; i++){
@@ -1099,7 +1057,7 @@ int main(int argc, char *argv[]){
           MPI_Recv(&run, 1, MPI_INT, 0, 24, MPI_COMM_WORLD, &status);
           
           if(run == 0){
-              printf("p 2 breaking\n");
+            //  printf("p 2 breaking\n");
               break;
           }
           for(int i=0; i<total_boxes; i++){
@@ -1111,17 +1069,12 @@ int main(int argc, char *argv[]){
      
      if(p_rank == 3){
        
-         MPI_Recv(dsv_c3, 12206, MPI_DOUBLE, 0, 23, MPI_COMM_WORLD, &status);
           MPI_Recv(&run, 1, MPI_INT, 0, 24, MPI_COMM_WORLD, &status);
           
           if(run == 0){
-              printf("p 2 breaking\n");
+             // printf("p 2 breaking\n");
               break;
           }
-          for(int i=0; i<total_boxes; i++){
-             gb_recv[i].temp = dsv_c3[i];
-             dsv_c3[i] = 0;
-         }
        
      }
      
@@ -1130,7 +1083,7 @@ int main(int argc, char *argv[]){
           MPI_Recv(&run, 1, MPI_INT, 0, 24, MPI_COMM_WORLD, &status);
           
           if(run == 0){
-              printf("p 2 breaking\n");
+           //   printf("p 2 breaking\n");
               break;
           }
        
@@ -1139,9 +1092,9 @@ int main(int argc, char *argv[]){
    
      if(run == 0){
          if(p_rank == 0){
-             printf("cur max: %lf  cur min: %lf \n", cur_max_dsv, cur_min_dsv );
+           //  printf("cur max: %lf  cur min: %lf \n", cur_max_dsv, cur_min_dsv );
          }
-         printf("process %d\n", p_rank);
+        // printf("process %d\n", p_rank);
          break;
      }
      
@@ -1151,8 +1104,7 @@ int main(int argc, char *argv[]){
   
   
   if(p_rank == 0){
-         //MPI_Recv(&total_iterations, 1, MPI_INT, 1, 21, MPI_COMM_WORLD, &status);
-         printf("total_iterations is %d\n", tt);
+
          
     time_t time_t_end;
     time_t_end = time(NULL); 
