@@ -127,6 +127,7 @@ void convergenceLoop(){
                 }
                 
             }
+           // printf("top dsv_c[%d] :%lf \n",cur, dsv_c[cur] );
           }
           
           //right neighbours
@@ -147,6 +148,7 @@ void convergenceLoop(){
                   //printf("Something wrong with overlap \n");
                 }
             }
+            //printf("right dsv_c[%d] :%lf \n",cur, dsv_c[cur] );
         }
           
           //bottom neighbours
@@ -168,6 +170,7 @@ void convergenceLoop(){
                   //printf("Something wrong with overlap \n");
                 }
             }
+           // printf("bottom dsv_c[%d] :%lf \n",cur, dsv_c[cur] );
           }
           
           //left neighbours
@@ -188,9 +191,12 @@ void convergenceLoop(){
                   //printf("Something wrong with overlap \n");
                 }
             }
+           // printf("left dsv_c[%d] :%lf \n",cur, dsv_c[cur] );
           }
 
           double offset = 0;
+
+        //  printf("box peri[i] : %d %d \n",cur, box_peri );
 
           double cur_temp = grid_boxes[cur].temp;
           if(box_peri > 0){
@@ -206,7 +212,7 @@ int main(int argc, char *argv[])
   
   int row = 0;
   int col = 0;
-  char line[500];
+  char *line;
   int linecounter = 0;
   char delim[] = " \t";
   
@@ -227,8 +233,16 @@ int main(int argc, char *argv[])
   sscanf(argv[1], "%lf", &affect_rate);
   sscanf(argv[2], "%lf", &epsilon);
   
-  //reading first line containng number of boxes, rows and cols
-  if(fgets(line, sizeof(line), stdin)){
+  FILE * fp;
+  fp = fopen("../inputs/testgrid_400_12206", "r");
+  if (fp == NULL)
+      exit(EXIT_FAILURE);
+  
+  
+  size_t len = 0;
+  ssize_t read;
+      
+  if ((read = getline(&line, &len, fp)) != -1){
     i=0;
     char *ptr = strtok(line, delim);
 
@@ -253,7 +267,7 @@ int main(int argc, char *argv[])
   dsv_c = malloc(sizeof(double) * total_boxes);
   int t=0;
   
-  while (fgets(line, sizeof(line), stdin)) {
+  while ((read = getline(&line, &len, fp)) != -1) {
       
       if(emptyline(line)) continue;
       
@@ -385,10 +399,13 @@ int main(int argc, char *argv[])
 
       for(int curx=1; curx<total_boxes; curx++){
           grid_boxes[curx].temp = dsv_c[curx];
+        //  printf("temp received %lf \n", grid_boxes[curx].temp);
           cur_max_dsv = max(cur_max_dsv,  dsv_c[curx]);
           cur_min_dsv = min(cur_min_dsv,  dsv_c[curx]);
       }
 
+     // printf("\n");
+      printf("cur min: %lf  and max   %lf \n",cur_min_dsv, cur_max_dsv);
       int diff = (cur_max_dsv - cur_min_dsv) <= (epsilon*cur_max_dsv) ? 1 : 0;
       if(diff==1) break;
 
